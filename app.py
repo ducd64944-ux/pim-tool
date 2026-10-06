@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.6 · 2026-10-06 (biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.6 · 2026-10-06 (nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -738,31 +738,68 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None) -> No
 # ============================================================================
 # TRANG: NẠP DỮ LIỆU LÔ
 # ============================================================================
-def nhap_mau(w: dict, lay_lo: bool, lay_chung: bool, ten_file: str) -> None:
-    """Đưa dữ liệu đọc từ file mẫu vào kho: phần LÔ vào workspace đang mở; phần DÙNG CHUNG gộp theo ngành (admin)."""
+VUNG_LO = [  # (khoá, tên vùng, có chế độ ghi đè/nối tiếp)
+    ("import", "📋 IMPORT — model · SKU · mã biến thể · category", True),
+    ("data_sp", "📦 DATA SP — dữ liệu CMS của sản phẩm", True),
+    ("spec", "🧾 SPEC PIM tạm — để đối chiếu", True),
+    ("don_vi", "📏 Đơn vị đã đặt theo cột", False),
+    ("chon_nganh", "☑️ CHỌN NGÀNH HÀNG", False)]
+VUNG_CHUNG = [  # dùng chung, chỉ admin
+    ("cau_hinh", "🏷️ Cấu hình ngành hàng (danh sách cột TSKT)"),
+    ("map_tskt", "🧬 Mapping TSKT"),
+    ("map_filter", "🧮 Mapping FILTER"),
+    ("data_pim", "🗂️ DATA PIM (option FILTER)")]
+
+
+def _so_vung(w: dict, k: str) -> int:
+    v = w.get(k)
+    return 0 if v is None else len(v)
+
+
+def nhap_mau(w: dict, chon_lo: dict, chon_chung: list, ten_file: str) -> None:
+    """Nạp ĐÚNG các vùng đã chọn từ file mẫu; vùng không chọn giữ nguyên 100%.
+    chon_lo: {khoá vùng lô: "ghi_de" | "noi_tiep"} · chon_chung: các khoá dùng chung (admin) gộp theo ngành."""
     phan, bao = [], []
-    if lay_lo:
-        for k in ("import", "data_sp", "spec"):
-            if k in w and len(w[k]):
-                ss[k] = C.nen_df(w[k]) if k != "import" else w[k]
-                phan.append(k)
-                bao.append(f"{k}: {len(w[k]):,} dòng")
-        if w.get("don_vi"):
+    for k, mode in chon_lo.items():
+        n = _so_vung(w, k)
+        if not n:
+            continue
+        if k == "import":
+            moi = w[k]
+            if mode == "noi_tiep" and len(ss["import"]):
+                ss["import"] = pd.concat([ss["import"][~ss["import"].sku.isin(set(moi.sku))], moi], ignore_index=True)
+            else:
+                ss["import"] = moi
+        elif k in ("data_sp", "spec"):
+            moi = w[k]
+            if mode == "noi_tiep" and len(ss[k]):
+                cu = ss[k].astype(object)
+                if k == "spec":
+                    cu = cu[~cu.sku.isin(set(moi.sku))]
+                ss[k] = C.nen_df(pd.concat([cu, moi], ignore_index=True).drop_duplicates(ignore_index=True))
+            else:
+                ss[k] = C.nen_df(moi)
+        elif k == "don_vi":
             ss.dv.update({tuple(kk.split("\t")): v for kk, v in w["don_vi"].items()})
-        if w.get("chon_nganh"):
+        elif k == "chon_nganh":
             ss.chon_nganh = w["chon_nganh"]
-    if lay_chung and duoc_sua_chung():
+        phan.append(k)
+        bao.append(f"{k}: {n:,} ({'nối tiếp' if mode == 'noi_tiep' else 'ghi đè'})" if mode else f"{k}: {n:,}")
+    if chon_chung and duoc_sua_chung():
         nap_shared()  # lấy bản mới nhất trước khi gộp (nhiều người cùng dùng)
         cu = {k: ss[k] for k in ("cau_hinh", "map_tskt", "map_filter", "data_pim")}
-        out, tk = C.gop_chung_theo_nganh(cu, {k: w.get(k) for k in cu})
+        out, tk = C.gop_chung_theo_nganh(cu, {k: (w.get(k) if k in chon_chung else None) for k in cu})
         for k, v in out.items():
             ss[k] = v
         ss.opt = C.option_maps(ss.data_pim)
         phan += [f"shared:{k}" for k in tk]
         bao += [f"{k}: {v}" for k, v in tk.items()]
+    if not phan:
+        st.info("Không có vùng nào được nạp (vùng chọn không có dữ liệu trong file).")
+        return
     bump()
-    if luu(phan + ["settings"], f"Nạp file mẫu {ten_file}"):
-        st.success("✔ Đã nạp: " + " · ".join(bao))
+    if luu(phan + ["settings"], f"Nạp file mẫu {ten_file}: {', '.join(phan)}"):
+        st.success("✔ Đã nạp: " + " · ".join(bao) + " — các vùng còn lại giữ nguyên.")
 
 
 def khu_nap_mau() -> None:
@@ -797,18 +834,51 @@ def khu_nap_mau() -> None:
     thieu = [c for c in sorted(nganh_lo) if c not in ss.cau_hinh and c not in w.get("cau_hinh", {})]
     if thieu:
         st.warning(f"Ngành chưa có cấu hình ở kho lẫn trong file: {', '.join(thieu)} — SKU các ngành này sẽ bị bỏ qua.")
-    c = st.columns([1.2, 1.6, 2])
-    lay_lo = c[0].checkbox(f"Dữ liệu LÔ → workspace {ss.ws}", value=True,
-                           help="IMPORT + DATA SP (+ spec/đơn vị nếu file có). Thay dữ liệu lô hiện tại.")
-    lay_chung = c[1].checkbox("Mapping / cấu hình / DATA PIM → dùng chung (gộp theo ngành)", value=duoc_sua_chung(),
-                              disabled=not duoc_sua_chung(),
-                              help="Ngành có trong file: thay mapping + cấu hình của ngành đó. Ngành khác giữ nguyên. "
-                                   "DATA PIM: mã thuộc tính có trong file thay toàn bộ option của mã đó.")
+    st.markdown("##### Chọn vùng cần nạp — vùng không tick giữ nguyên, không bị đụng tới")
+    ver = abs(hash(ss.get("mau_ten")))
+    ds_lo = [(k, t, m) for k, t, m in VUNG_LO if _so_vung(w, k)]
+    ds_chung = [(k, t) for k, t in VUNG_CHUNG if _so_vung(w, k)]
+
+    def dat_hang_loat(lo: bool, chung: bool) -> None:
+        for k, _, _ in ds_lo:
+            st.session_state[f"v_{k}_{ver}"] = lo
+        for k, _ in ds_chung:
+            st.session_state[f"v_{k}_{ver}"] = chung and duoc_sua_chung()
+    b1, b2, b3, b4 = st.columns(4)
+    b1.button("✅ Tất cả vùng", on_click=dat_hang_loat, args=(True, True), key=f"b_all_{ver}")
+    b2.button("Chỉ vùng LÔ", on_click=dat_hang_loat, args=(True, False), key=f"b_lo_{ver}")
+    b3.button("Chỉ vùng DÙNG CHUNG", on_click=dat_hang_loat, args=(False, True), key=f"b_chung_{ver}")
+    b4.button("Bỏ chọn hết", on_click=dat_hang_loat, args=(False, False), key=f"b_none_{ver}")
+    chon_lo, chon_chung = {}, []
+    st.markdown(f"**Vùng LÔ** → workspace `{ss.ws}`")
+    for k, t, co_mode in ds_lo:
+        c = st.columns([3.2, 1.2, 2])
+        st.session_state.setdefault(f"v_{k}_{ver}", True)
+        on = c[0].checkbox(t, key=f"v_{k}_{ver}")
+        c[1].caption(f"{_so_vung(w, k):,} dòng" if k != "chon_nganh" else f"{_so_vung(w, k)} ngành")
+        mode = None
+        if co_mode:
+            mode = "noi_tiep" if c[2].radio("Cách ghi", ["Ghi đè", "Nối tiếp"], horizontal=True, key=f"m_{k}_{ver}",
+                                            label_visibility="collapsed", disabled=not on,
+                                            help="Ghi đè = thay hết vùng này. Nối tiếp = giữ dữ liệu cũ, thêm/cập nhật phần trong file."
+                                            ) == "Nối tiếp" else "ghi_de"
+        if on:
+            chon_lo[k] = mode
+    st.markdown("**Vùng DÙNG CHUNG** (cả nhóm dùng — gộp theo ngành, ngành khác giữ nguyên)")
     if not duoc_sua_chung():
-        c[1].caption("Chỉ admin cập nhật dữ liệu dùng chung.")
-    if c[2].button("✔ Nạp vào tool", type="primary", disabled=not (lay_lo or lay_chung)):
-        nhap_mau(w, lay_lo, lay_chung, f.name)
-        if lay_lo and st.session_state.get("tu_map_sau_nap", True):
+        st.caption("Chỉ admin cập nhật dữ liệu dùng chung.")
+    for k, t in ds_chung:
+        c = st.columns([3.2, 1.2, 2])
+        st.session_state.setdefault(f"v_{k}_{ver}", duoc_sua_chung())
+        on = c[0].checkbox(t, key=f"v_{k}_{ver}", disabled=not duoc_sua_chung())
+        c[1].caption(f"{_so_vung(w, k):,} " + ("ngành" if k == "cau_hinh" else "dòng"))
+        if on and duoc_sua_chung():
+            chon_chung.append(k)
+    n_chon = len(chon_lo) + len(chon_chung)
+    if st.button(f"✔ Nạp {n_chon} vùng đã chọn" if n_chon else "✔ Nạp vào tool", type="primary",
+                 disabled=not n_chon, key=f"nap_{ver}"):
+        nhap_mau(w, chon_lo, chon_chung, f.name)
+        if chon_lo and st.session_state.get("tu_map_sau_nap", True):
             chay_map_ui()
 
 

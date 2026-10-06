@@ -6,7 +6,7 @@
 
 Tool **tự nhận loại file**:
 
-- **Workspace theo mẫu** (nhiều sheet: IMPORT, DATA SP, CẤU HÌNH, MAPPING…): lấy dữ liệu lô. Admin tick thêm ô "cập nhật dùng chung".
+- **Workspace theo mẫu** (nhiều sheet: IMPORT, DATA SP, CẤU HÌNH, MAPPING…): lấy dữ liệu lô. Muốn chọn kỹ từng vùng thì dùng **📦 Nạp file theo mẫu** (bên dưới): tick đúng vùng cần nạp (IMPORT · DATA SP · SPEC PIM tạm · Đơn vị · Chọn ngành · Cấu hình · Mapping TSKT · Mapping FILTER · DATA PIM), mỗi vùng lô chọn **Ghi đè** hoặc **Nối tiếp**. Vùng không tick **giữ nguyên hoàn toàn**. Có nút ✅ Tất cả / Chỉ vùng LÔ / Chỉ vùng DÙNG CHUNG / Bỏ chọn hết. Vùng dùng chung chỉ admin nạp được.
 - **File CMS export** → DATA SP:
   - tiêu đề tiếng Anh/Việt, có/không dấu đều nhận (Mã ERP, Mã thuộc tính, Giá trị…);
   - không có tiêu đề thì đọc theo vị trí cột A–G như 66.py.
