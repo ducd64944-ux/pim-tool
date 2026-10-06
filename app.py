@@ -1039,10 +1039,14 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         ds_gy_cfg.append((ten_file, gy.get("cate_id", ""), cot_gy))
     cat_them = []  # [(cate_id, cate_ten, [(ma,tv),...])]
     if ds_gy_cfg and duoc_sua_chung():
-        with st.expander(f"➕ Thêm cấu hình ngành từ file SKU ({sum(len(c) for _,_,c in ds_gy_cfg):,} cột gợi ý)",
-                         expanded=True):
+        # KHÔNG dùng st.expander ở đây — khu_nap_nhanh có thể đang nằm trong một expander (vd Trang 🏁 Làm nhanh),
+        # Streamlit không cho expander lồng nhau -> crash im lặng -> file có vẻ "không nhận".
+        with st.container(border=True):
+            st.markdown(f"**➕ Thêm cấu hình ngành từ file SKU** "
+                        f"({sum(len(c) for _, _, c in ds_gy_cfg):,} cột gợi ý)")
             st.caption("Tool thấy file export PIM có kèm danh sách cột TSKT. Xác nhận **mã ngành** và **tên ngành** để "
-                       "thêm vào Cấu hình ngành (dùng chung). Ngành đã có → chỉ bổ sung cột còn thiếu, không xoá cột cũ.")
+                       "thêm vào Cấu hình ngành (dùng chung). Ngành đã có → chỉ bổ sung cột còn thiếu, không xoá cột cũ. "
+                       "Không muốn thêm thì bỏ tick 'Áp dụng' — không ảnh hưởng việc nạp dữ liệu lô.")
             for i, (ten_file, cate_gy, cot_gy) in enumerate(ds_gy_cfg):
                 st.markdown(f"**📄 {ten_file}** — {len(cot_gy)} cột thuộc tính")
                 cols = st.columns([1.2, 2.5, 1])
@@ -1053,7 +1057,8 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                                           placeholder="vd: Xe đạp tập thể dục")
                 ok = cols[2].checkbox("Áp dụng", value=bool(cid), key=f"{key}_cfg_ok_{i}",
                                       disabled=not cid)
-                with st.expander(f"Xem {len(cot_gy)} cột sẽ thêm", expanded=False):
+                xem = st.checkbox(f"Xem {len(cot_gy)} cột sẽ thêm", key=f"{key}_cfg_xem_{i}")
+                if xem:
                     st.dataframe(pd.DataFrame(cot_gy, columns=["Mã cột", "Tên tiếng Việt"]),
                                  hide_index=True, height=min(300, 40 + 30 * min(len(cot_gy), 10)))
                 if ok and cid:
