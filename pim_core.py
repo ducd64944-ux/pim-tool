@@ -489,6 +489,7 @@ TEN_COT: Dict[str, List[str]] = {
     "sku": ["sku", "Mã sản phẩm ERP", "Mã ERP", "ERP", "Mã SP ERP", "Mã SP", "Mã sản phẩm", "Mã hàng", "productcode"],
     "model_code": ["model_code", "Mã model", "Model", "Mã mẫu", "modelcode"],
     "variant_code": ["variant_code", "Mã biến thể", "Biến thể", "variant", "variantcode"],
+    "family_variant_code": ["family_variant_code", "Mã họ biến thể", "Họ biến thể", "familyvariantcode"],
     "category_code": ["category_code", "Mã danh mục PIM", "Danh mục PIM", "Mã danh mục", "categorycode"],
     "PRODUCTID": ["PRODUCTID", "product id", "Mã sản phẩm CMS", "ID sản phẩm"],
     "PRODUCTCODE": ["PRODUCTCODE", "product code", "Mã ERP", "Mã sản phẩm ERP", "sku"],
@@ -559,6 +560,12 @@ def doc_cms_export(data: bytes, ten_file: str) -> Tuple[pd.DataFrame, Optional[s
     return pd.DataFrame(out, columns=COT_DATA_SP), None
 
 
+def la_bien_the_mau(ma_ho_bien_the) -> bool:
+    """RULE: Mã họ biến thể có chữ "color" (vd lvl_1_color_iden_master) = biến thể THEO MÀU
+    -> SKU đó xuất vào file import MODEL, không phải file BIENTHE (nên bỏ variant_code khi nạp)."""
+    return "color" in chuan_hoa_key(ma_ho_bien_the).lower()
+
+
 def doc_pim_export(data: bytes, ten_file: str) -> dict:
     """File export PIM (dòng 1 = mã cột, dòng 2 = tên, dữ liệu từ dòng 3):
     -> IMPORT (model/sku/variant/category) + SPEC (dạng dọc, đã làm sạch [""])."""
@@ -577,7 +584,14 @@ def doc_pim_export(data: bytes, ten_file: str) -> dict:
                 idx[f] = j
     if "sku" not in idx:
         return {"loi": 'Không thấy cột sku (sku / Mã sản phẩm ERP / Mã ERP…) ở dòng 1-2 — cần file export PIM.'}
+    if "family_variant_code" not in idx:
+        j = tim_cot_truong(h1, "family_variant_code")
+        if j < 0:
+            j = tim_cot_truong(h2, "family_variant_code")
+        if j >= 0:
+            idx["family_variant_code"] = j
     co_dinh = {idx.get(f) for f in ("sku", "model_code", "variant_code", "category_code")}
+    n_mau = 0
     spec_cols = [(h, j, h2[j]) for j, h in enumerate(h1) if h and h.lower() not in COT_KHONG_PHAI_SPEC
                  and j not in co_dinh and re.fullmatch(r"[A-Za-z0-9_]+", h) and "_" in h]
     imp, spec, seen = [], [], set()
@@ -597,6 +611,8 @@ def doc_pim_export(data: bytes, ten_file: str) -> dict:
             continue
         seen.add(sku)
         model, variant, cate = g("model_code"), g("variant_code"), chuan_hoa_id(g("category_code"))
+        if variant and la_bien_the_mau(g("family_variant_code")):
+            variant, n_mau = "", n_mau + 1
         imp.append([model, sku, variant, cate])
         co = False
         for code, j, ten in spec_cols:
@@ -612,7 +628,8 @@ def doc_pim_export(data: bytes, ten_file: str) -> dict:
     return {"loi": None, "import": df_imp, "spec": pd.DataFrame(spec, columns=COT_SPEC),
             "bo_khong_sku": bo_khong_sku, "trung": trung,
             "thieu_model": int((df_imp.model_code == "").sum()),
-            "thieu_cate": int((df_imp.category_code == "").sum()), "so_cot_spec": len(spec_cols)}
+            "thieu_cate": int((df_imp.category_code == "").sum()), "so_cot_spec": len(spec_cols),
+            "bien_the_mau": n_mau}
 
 
 _MA_RE = re.compile(r"^[A-Za-z0-9._\-]+$")
@@ -646,7 +663,7 @@ def doc_mot_cuc(rows: List[list]) -> dict:
         if j >= 0:
             hang_tieu_de = i
             vt = {f: tim_cot_truong([ep_text(x) for x in rows[i]], f) for f in ("sku", "model_code", "variant_code",
-                                                                                 "category_code")}
+                                                                                 "category_code", "family_variant_code")}
             break
     if hang_tieu_de >= 0:
         h1 = [chuan_hoa_key(x) for x in rows[hang_tieu_de]]
@@ -684,6 +701,7 @@ def doc_mot_cuc(rows: List[list]) -> dict:
                               ", ".join(f"cột {c} = {f}" for f, c in ten.items()) + ". Kiểm tra lại bảng xem trước.")
     out["nhan_cot"] = {f: (h1[j] or chr(65 + j)) for f, j in vt.items() if j >= 0}
     co_dinh = {j for j in vt.values() if j >= 0}
+    n_mau = 0
     cot_spec = [(j, h1[j], h2[j]) for j in range(n) if j not in co_dinh and h1[j] and _MA_COT_RE.match(h1[j])
                 and h1[j].lower() not in COT_KHONG_PHAI_SPEC]
     imp, spec, seen, trung = [], [], set(), 0
@@ -699,6 +717,8 @@ def doc_mot_cuc(rows: List[list]) -> dict:
             continue
         seen.add(sku)
         model, variant, cate = g("model_code"), g("variant_code"), chuan_hoa_id(g("category_code"))
+        if variant and la_bien_the_mau(g("family_variant_code")):
+            variant, n_mau = "", n_mau + 1
         imp.append([model, sku, variant, cate])
         for j, code, ten in cot_spec:
             v = lam_sach_gia_tri_pim(r[j], code)
@@ -708,6 +728,9 @@ def doc_mot_cuc(rows: List[list]) -> dict:
     out["spec"] = pd.DataFrame(spec, columns=COT_SPEC)
     if trung:
         out["ghi_chu"].append(f"Bỏ {trung} dòng trùng SKU (giữ dòng đầu).")
+    if n_mau:
+        out["bien_the_mau"] = n_mau
+        out["ghi_chu"].append(f"{n_mau} SKU có Mã họ biến thể chứa 'color' (biến thể theo màu) -> xuất vào file MODEL, không phải BIENTHE.")
     if cot_spec:
         out["ghi_chu"].append(f"Có {len(cot_spec)} cột thông số (TSKT/FILTER) -> tách thành spec PIM cũ để đối chiếu "
                               f"({len(spec):,} ô có giá trị).")

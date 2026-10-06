@@ -32,3 +32,9 @@ File `tests/test_parity_desktop.py` tự kiểm tra các quy tắc dưới đây
   - map theo tên (bật tay)
 - **Cảnh báo thêm:** `model_code` lặp ở nhiều dòng file MODEL. Desktop cũng xuất y như vậy, web chỉ cảnh báo thêm.
 - **Tách SKU không có giá trị** khỏi file import (bật mặc định ở trang Xuất, tắt được). Desktop vẫn xuất dòng trống; web đưa các SKU này vào file xin data CMS.
+
+## Rule bổ sung (web-1.6)
+
+| # | Quy tắc | Chi tiết |
+|---|---|---|
+| 16 | Biến thể theo màu | Khi nạp danh sách SKU / file export PIM: nếu cột **Mã họ biến thể** (`family_variant_code`) có chữ **`color`** (vd `lvl_1_color_iden_master`) thì SKU đó coi là biến thể theo màu: bỏ `variant_code` khi nạp, nên xuất vào file import **MODEL**, không phải **BIENTHE**. Họ biến thể khác (không có chữ color) giữ nguyên rule cũ. |

@@ -13,6 +13,7 @@ Tool **tự nhận loại file**:
 - **Danh sách SKU / file export PIM** (model, SKU, biến thể, category, kèm hoặc không kèm cột TSKT/FILTER):
   - tên cột tuỳ ý (Mã model, Mã sản phẩm ERP, Mã biến thể…);
   - **không có tiêu đề thì tool đoán theo nội dung** (cột số dài nhất là SKU…), có bảng xem trước để kiểm tra lại;
+  - **Mã họ biến thể có chữ `color`** (vd `lvl_1_color_iden_master`) = biến thể theo màu → SKU đó xuất vào file **MODEL**, không phải BIENTHE;
   - cột TSKT/FILTER được **tách tự động** thành spec PIM cũ để đối chiếu.
 
 Sau khi nạp:

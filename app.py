@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.6 · 2026-10-06 (tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.6 · 2026-10-06 (biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -1031,6 +1031,8 @@ def trang_nap() -> None:
                         f"bỏ {r['bo_khong_sku']} dòng không có sku" if r["bo_khong_sku"] else "",
                         f"bỏ {r['trung']} dòng trùng sku" if r["trung"] else ""]
                 canh = [x for x in canh if x]
+                if r.get("bien_the_mau"):
+                    msg += f" · 🎨 {r['bien_the_mau']} SKU biến thể theo màu → xuất file MODEL"
                 (st.warning if canh else st.success)(msg + ("  ·  ⚠️ " + " · ".join(canh) if canh else ""))
         st.caption(f"IMPORT hiện có **{len(ss['import']):,}** SKU · spec cũ của "
                    f"{ss.spec.sku.nunique() if len(ss.spec) else 0:,} SKU")
