@@ -25,16 +25,37 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.6 · 2026-10-06 (3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.7 · 2026-10-06 (bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
 <style>
 #MainMenu, footer {visibility: hidden;}
-div[data-testid="stMetric"] {background: #f6f8fd; border: 1px solid #e3e8f4; border-radius: 10px; padding: 8px 12px;}
-div[data-testid="stMetricValue"] {font-size: 1.45rem;}
-.buoc {background:#eef4ff;border-left:4px solid #2f6fed;padding:8px 12px;border-radius:6px;margin:4px 0 10px 0;}
-.canh {background:#fff4f2;border-left:4px solid #c0392b;padding:8px 12px;border-radius:6px;margin:4px 0 10px 0;}
+html, body, [class*="css"] {-webkit-font-smoothing:antialiased;}
+.block-container {padding-top: 2.4rem; max-width: 1500px;}
+h1 {font-weight: 800; letter-spacing:-.5px; font-size: 1.7rem;}
+h2, h3 {font-weight: 700; letter-spacing:-.3px;}
+div[data-testid="stMetric"] {background: linear-gradient(180deg,#ffffff,#f6f8fd); border: 1px solid #e3e8f4;
+  border-radius: 14px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04);}
+div[data-testid="stMetricValue"] {font-size: 1.5rem; font-weight: 700;}
+div[data-testid="stMetricLabel"] p {font-size:.8rem; color:#5a6b85;}
+.stButton>button {border-radius: 10px; font-weight: 600; border:1px solid #d7deea;}
+.stButton>button[kind="primary"] {box-shadow:0 2px 6px rgba(47,111,237,.25);}
+div[data-testid="stExpander"] {border:1px solid #e6eaf2; border-radius:12px; box-shadow:0 1px 2px rgba(16,24,40,.03);}
+div[data-baseweb="tab-list"] {gap: 4px;}
+button[data-baseweb="tab"] {border-radius:10px 10px 0 0;}
+div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {border:1px solid #e6eaf2; border-radius:12px;}
+.buoc {background:linear-gradient(90deg,#eef4ff,#f7faff);border-left:4px solid #2f6fed;padding:10px 14px;
+  border-radius:10px;margin:4px 0 12px 0;}
+.canh {background:#fff4f2;border-left:4px solid #c0392b;padding:10px 14px;border-radius:10px;margin:4px 0 12px 0;}
+.pill {display:inline-block;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:600;margin:2px 4px 2px 0;}
+.pill-cao{background:#fdeaea;color:#c0392b;} .pill-tb{background:#fff3e0;color:#d97706;}
+.pill-thap{background:#e8f6ec;color:#1b873f;} .pill-tt{background:#eaf1fb;color:#2f6fed;}
+.card {background:#fff;border:1px solid #e6eaf2;border-radius:14px;padding:14px 16px;margin:6px 0;
+  box-shadow:0 1px 3px rgba(16,24,40,.05);}
+.card-h {font-weight:700;font-size:1.02rem;margin-bottom:2px;}
+.card-s {color:#5a6b85;font-size:.86rem;}
+hr {margin:.8rem 0;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -1522,40 +1543,41 @@ def qc_tong_hop(k: dict) -> list:
     rong_chua = sum(1 for x in k["gia_tri_rong"] if ss.rong.get(x["khoa"], [C.HD_GIU])[0] == C.HD_GIU)
     q = [
         ("CAO", "Thiếu model_code", s.get("thieu_model", 0), "SKU không có Mã model → không import được",
-         "Nạp file export PIM / sửa IMPORT (trang 📥)", None),
+         "Sửa trực tiếp cột Mã model bên dưới", "thieu_model", "thieu_model"),
         ("CAO", "Thiếu category_code", s.get("thieu_cate", 0), "IMPORT chưa có Mã danh mục PIM",
-         "Nạp file export PIM (có category_code) hoặc điền ở bảng IMPORT", None),
+         "Sửa trực tiếp cột Mã danh mục bên dưới", "thieu_cate", "thieu_cate"),
         ("CAO", "ERP / model KHÔNG CÓ GIÁ TRỊ", len(xd["sku"]),
          "CMS chưa có data, ngành chưa có mapping, hoặc không thuộc tính nào map được",
-         "Tải file xin data CMS; trang Xuất có tuỳ chọn tách các SKU này khỏi file import", "xin_data"),
+         "Xem danh sách & tải file xin data CMS bên dưới", "xin_data", "xin_data"),
         ("CAO", "Mapping trỏ tới cột không có trong cấu hình", nc,
-         "Giá trị CMS đã map nhưng ngành không có cột đó → MẤT khi xuất", "Thêm cột thiếu vào cấu hình (admin)",
-         "them_cot" if nc else None),
+         "Giá trị CMS đã map nhưng ngành không có cột đó → MẤT khi xuất", "Xem cột thiếu & thêm vào cấu hình bên dưới",
+         "them_cot" if nc else None, "cot_thieu"),
         ("CAO", "FILTER không khớp option", nf, "Giá trị CMS không trùng tên option nào trong DATA PIM → ô trống",
-         "🧾 Đối soát → 🔁 Quy đổi FILTER (có gợi ý option gần giống)", None),
+         "Chọn option đúng cho từng giá trị bên dưới", None, "filter_khong_khop"),
         ("CAO", "FILTER chứa chữ (sai mã)", s.get("filter_chu", 0), "PIM chỉ nhận mã option số",
-         "🔎 Theo SKU + FILTER → chọn lại option", None),
+         "Sửa trực tiếp từng ô FILTER bên dưới", None, "filter_chu"),
         ("CAO", "Vi phạm quy tắc mức Lỗi", int((h["vi_pham"]["Mức"] == C.MUC_LOI).sum()) if len(h["vi_pham"]) else 0,
-         "Không đạt quy tắc chất lượng admin đặt", "📈 Độ hoàn thiện & quy tắc", None),
+         "Không đạt quy tắc chất lượng admin đặt", "Xem danh sách ô vi phạm bên dưới", None, "vi_pham"),
         ("TB", "Ô KHÁC spec PIM", s.get(C.TRANG_THAI_KHAC, 0) if co else 0, "Import sẽ ghi đè giá trị đang trên web",
-         "≠ Khác spec PIM: giữ TOOL MỚI hoặc tick Lấy PIM cũ", None),
+         "Đối chiếu PIM cũ ↔ TOOL MỚI, sửa bên dưới", None, "khac_spec"),
         ("TB", "Tool trống nhưng PIM đang có", s.get(C.TRANG_THAI_TOOL_TRONG, 0) if co else 0,
-         "CMS không có giá trị, PIM cũ có", "Lấy PIM cũ cho các ô này", "lay_pim" if co else None),
+         "CMS không có giá trị, PIM cũ có", "Lấy PIM cũ cho các ô này", "lay_pim" if co else None, "tool_trong"),
         ("TB", "Kích thước/khối lượng chưa có đơn vị", s.get("chua_don_vi", 0), "Ô số trơn ở cột kích thước",
-         "Điền đơn vị gợi ý cho mọi cột còn số trơn (rule cũ)", "don_vi"),
+         "Bảng dài · rộng · cao: thêm đơn vị + sửa số bên dưới", "don_vi", "kich_thuoc"),
         ("TB", "Giá trị Không / Đang cập nhật chưa chọn cách xử lý", rong_chua,
-         "Mặc định GIỮ nguyên khi import", "🚫 Không / Đang cập nhật: Giữ / Để trống / Thay bằng", "rong" if rong_chua else None),
+         "Mặc định GIỮ nguyên khi import", "Chọn Giữ / Để trống / Thay bằng cho từng giá trị bên dưới",
+         "rong" if rong_chua else None, "rong"),
         ("TB", "Nghi sai (kiểm tra thông minh)", int(ttm_.muc_do.isin([C.MUC_CAO, C.MUC_TB]).sum()) if len(ttm_) else 0,
-         "Lỗi gõ, lẫn đơn vị, giá trị bất thường", "Áp các gợi ý mức Cao (có giá trị sửa)",
-         "ttm" if len(ttm_) and ((ttm_.muc_do == C.MUC_CAO) & (ttm_.goi_y != "")).any() else None),
+         "Lỗi gõ, lẫn đơn vị, giá trị bất thường", "Xem & áp từng gợi ý sửa bên dưới",
+         "ttm" if len(ttm_) and ((ttm_.muc_do == C.MUC_CAO) & (ttm_.goi_y != "")).any() else None, "ttm"),
         ("TB", "SKU chưa đủ cột bắt buộc", int((~h["sku"]["Đủ bắt buộc"]).sum()) if len(h["sku"]) else 0,
-         "Theo quy tắc Bắt buộc", "📈 Độ hoàn thiện & quy tắc", None),
+         "Theo quy tắc Bắt buộc", "Xem danh sách SKU còn thiếu bên dưới", None, "sku_bat_buoc"),
         ("TB", "model_code lặp nhiều dòng MODEL", len(C.model_trung(ss.bang)), "PIM sẽ lấy dòng sau cùng",
-         "Kiểm tra IMPORT có thiếu variant_code", None),
+         "Xem các model_code bị lặp bên dưới", None, "model_lap"),
         ("THAP", "Thuộc tính CMS chưa có mapping", len(ss.meta.get("chua_map", [])), "Không vào file import",
-         "🧩 Thuộc tính chưa map → thêm vào MAPPING", None),
+         "Xem thuộc tính chưa map bên dưới", None, "chua_map"),
         ("TT", "SKU không có trong file PIM cũ", s.get("khong_co_pim", 0) if co else 0, "Không đối chiếu được spec",
-         "Bình thường với SKU mới", None),
+         "Bình thường với SKU mới", None, "khong_co_pim"),
     ]
     return [x for x in q if x[2]]
 
@@ -1574,67 +1596,325 @@ def tab_qc(k: dict) -> None:
     if not q:
         st.success("✔ Không còn mục nào cần xử lý — sang 📤 Xuất file.")
         return
-    st.dataframe(pd.DataFrame([{"Mức": MUC_ICON[a], "Vùng": b, "Số lượng": n_, "Ý nghĩa": y, "Gợi ý xử lý": g,
-                                "Sửa nhanh": "⚡" if act else ""} for a, b, n_, y, g, act in q]),
-                 hide_index=True, width="stretch",
-                 column_config={"Số lượng": st.column_config.NumberColumn(format="%d")})
+    st.caption("👉 **Bấm vào một dòng** để mở bảng xem & sửa riêng cho lỗi đó (sửa, đối chiếu bằng mắt như Excel).")
+    dfq = pd.DataFrame([{"Mức": MUC_ICON[a], "Vùng": b, "Số lượng": n_, "Ý nghĩa": y, "Cách xử lý": g}
+                        for a, b, n_, y, g, act, kind in q])
+    ev = st.dataframe(dfq, hide_index=True, width="stretch", key=f"qc_tbl_{ss.ver_map}",
+                      on_select="rerun", selection_mode="single-row",
+                      column_config={"Số lượng": st.column_config.NumberColumn(format="%d")})
+    rows = []
+    try:
+        rows = ev.selection["rows"]
+    except Exception:  # noqa: BLE001
+        rows = getattr(getattr(ev, "selection", None), "rows", []) or []
+    if rows:
+        i = rows[0]
+        muc, ten, so, y, g, act, kind = q[i]
+        st.markdown(f"<div class='card'><span class='pill pill-{muc.lower()}'>{MUC_ICON[muc]}</span> "
+                    f"<span class='card-h'>{ten}</span> · <b>{so:,}</b><br><span class='card-s'>{y} — {g}</span></div>",
+                    unsafe_allow_html=True)
+        khu_sua_loi(kind, k)
+    else:
+        st.info("Chưa chọn dòng nào. Bấm 1 dòng ở bảng trên để sửa; hoặc dùng ⚡ Sửa nhanh hàng loạt bên dưới.")
     acts = {x[5] for x in q if x[5]}
     if not acts:
         return
-    st.markdown("###### ⚡ Sửa nhanh (bấm là áp, có thể hoàn tác ở từng tab)")
-    cc = st.columns(4)
-    i = 0
+    with st.expander("⚡ Sửa nhanh hàng loạt (áp cho tất cả, không cần chọn dòng)"):
+        cc = st.columns(4)
+        i = 0
 
-    def nut(nhan, khoa):
-        nonlocal i
-        r = cc[i % 4].button(nhan, key=f"qc_{khoa}", width="stretch")
-        i += 1
-        return r
-    if "xin_data" in acts:
-        with cc[i % 4]:
-            nut_xin_data("qc_xd")
-        i += 1
-    if "lay_pim" in acts and nut("🪄 Ô tool trống → lấy PIM cũ", "lay_pim"):
-        for r in k["khac"]:
-            if r["trang_thai"] == C.TRANG_THAI_TOOL_TRONG and r["pim_cu"]:
-                dat_sua(r["cate"], r["sku"], r["ma"], r["pim_cu"], r["goc"])
-        bump()
-        luu(["settings"], "QC: lấy PIM cũ cho ô tool trống")
-        st.rerun()
-    if "don_vi" in acts and nut("📏 Điền đơn vị gợi ý (cột còn số trơn)", "dv"):
-        for x in k["don_vi_cot"]:
-            if x["so_tron"] and x["goi_y"] and x["la_kt"] and not ss.dv.get((x["cate"], x["code"])):
-                ss.dv[(x["cate"], x["code"])] = x["goi_y"]
-        bump()
-        luu(["settings"], "QC: điền đơn vị gợi ý")
-        st.rerun()
-    if "rong" in acts:
-        if nut("🚫 Không/Đang cập nhật → Để trống (không cập nhật)", "rong_trong"):
+        def nut(nhan, khoa):
+            nonlocal i
+            r = cc[i % 4].button(nhan, key=f"qc_{khoa}", width="stretch")
+            i += 1
+            return r
+        if "xin_data" in acts:
+            with cc[i % 4]:
+                nut_xin_data("qc_xd")
+            i += 1
+        if "lay_pim" in acts and nut("🪄 Ô tool trống → lấy PIM cũ", "lay_pim"):
+            for r in k["khac"]:
+                if r["trang_thai"] == C.TRANG_THAI_TOOL_TRONG and r["pim_cu"]:
+                    dat_sua(r["cate"], r["sku"], r["ma"], r["pim_cu"], r["goc"])
+            bump()
+            luu(["settings"], "QC: lấy PIM cũ cho ô tool trống")
+            st.rerun()
+        if "don_vi" in acts and nut("📏 Điền đơn vị gợi ý (cột còn số trơn)", "dv"):
+            for x in k["don_vi_cot"]:
+                if x["so_tron"] and x["goi_y"] and x["la_kt"] and not ss.dv.get((x["cate"], x["code"])):
+                    ss.dv[(x["cate"], x["code"])] = x["goi_y"]
+            bump()
+            luu(["settings"], "QC: điền đơn vị gợi ý")
+            st.rerun()
+        if "rong" in acts and nut("🚫 Không/Đang cập nhật → Để trống", "rong_trong"):
             for x in k["gia_tri_rong"]:
                 ss.rong.setdefault(x["khoa"], [C.HD_TRONG, ""])
             bump()
             luu(["settings"], "QC: giá trị rỗng → để trống")
             st.rerun()
-    if "ttm" in acts and nut("🧠 Áp gợi ý sửa mức Cao", "ttm"):
-        t = ttm()
-        m = 0
-        for r in t[(t.muc_do == C.MUC_CAO) & (t.goi_y != "")].itertuples(index=False):
-            b = ss.bang.get(r.cate, {})
-            row = next((x for x in b.get("rows", []) if x["sku"] == r.sku), None)
-            dat_sua(r.cate, r.sku, r.ma, r.goi_y, row["vals"].get(r.ma, "") if row else "")
-            m += 1
-        bump()
-        luu(["settings"], f"QC: áp {m} gợi ý kiểm tra thông minh mức Cao")
-        st.rerun()
-    if "them_cot" in acts and duoc_sua_chung() and nut("➕ Thêm cột thiếu vào cấu hình & map lại", "them_cot"):
+        if "ttm" in acts and nut("🧠 Áp gợi ý sửa mức Cao", "ttm"):
+            t = ttm()
+            m = 0
+            for r in t[(t.muc_do == C.MUC_CAO) & (t.goi_y != "")].itertuples(index=False):
+                b = ss.bang.get(r.cate, {})
+                row = next((x for x in b.get("rows", []) if x["sku"] == r.sku), None)
+                dat_sua(r.cate, r.sku, r.ma, r.goi_y, row["vals"].get(r.ma, "") if row else "")
+                m += 1
+            bump()
+            luu(["settings"], f"QC: áp {m} gợi ý kiểm tra thông minh mức Cao")
+            st.rerun()
+        if "them_cot" in acts and duoc_sua_chung() and nut("➕ Thêm cột thiếu vào cấu hình & map lại", "them_cot"):
+            L = ds()["loi"]
+            cot = L[L["_loai"] == "cot"]
+            for cate, ma in cot[["Ngành", "Mã cột"]].drop_duplicates().itertuples(index=False):
+                o = ss.cau_hinh.setdefault(cate, {"ten": "", "cot": [], "ten_cot": {}})
+                if ma not in o["cot"]:
+                    o["cot"].append(ma)
+            luu(["shared:cau_hinh"], f"QC: thêm {len(cot)} cột thiếu vào cấu hình")
+            chay_map_ui()
+            st.rerun()
+
+
+# ----------------------------------------------------------------------------
+# VÙNG XEM & SỬA RIÊNG TỪNG LỖI (bấm 1 dòng ở bảng QC)
+# ----------------------------------------------------------------------------
+def khu_sua_loi(kind: str, k: dict) -> None:
+    if kind in ("thieu_model", "thieu_cate"):
+        _sua_import_thieu("model_code" if kind == "thieu_model" else "category_code")
+    elif kind == "xin_data":
+        x = file_xin_data()
+        if len(x["sku"]):
+            st.dataframe(x["sku"].head(1000), hide_index=True, height=360)
+        nut_xin_data("sl_xd")
+    elif kind == "cot_thieu":
         L = ds()["loi"]
-        cot = L[L["_loai"] == "cot"]
-        for cate, ma in cot[["Ngành", "Mã cột"]].drop_duplicates().itertuples(index=False):
-            o = ss.cau_hinh.setdefault(cate, {"ten": "", "cot": [], "ten_cot": {}})
-            if ma not in o["cot"]:
-                o["cot"].append(ma)
-        luu(["shared:cau_hinh"], f"QC: thêm {len(cot)} cột thiếu vào cấu hình")
+        cot = L[L["_loai"] == "cot"] if len(L) else L
+        if not len(cot):
+            st.success("✔ Không còn cột thiếu.")
+            return
+        st.dataframe(cot.drop(columns=[c for c in cot.columns if c.startswith("_")]), hide_index=True, height=320)
+        n = cot[["Ngành", "Mã cột"]].drop_duplicates().shape[0]
+        if st.button(f"➕ Thêm {n} cột thiếu vào CẤU HÌNH & map lại", type="primary", disabled=not duoc_sua_chung()):
+            for cate, ma in cot[["Ngành", "Mã cột"]].drop_duplicates().itertuples(index=False):
+                o = ss.cau_hinh.setdefault(cate, {"ten": "", "cot": [], "ten_cot": {}})
+                if ma not in o["cot"]:
+                    o["cot"].append(ma)
+            luu(["shared:cau_hinh"], f"Thêm {n} cột thiếu vào cấu hình")
+            chay_map_ui()
+            st.rerun()
+        if not duoc_sua_chung():
+            st.caption("Chỉ admin sửa cấu hình dùng chung.")
+    elif kind == "filter_khong_khop":
+        khu_quy_doi_filter(ds()["loi"])
+    elif kind == "filter_chu":
+        _sua_filter_chu()
+    elif kind == "khac_spec":
+        v = khac_df(k)
+        v = v[v.trang_thai == C.TRANG_THAI_KHAC] if len(v) else v
+        _loc_roi_grid(v, "sl_khac")
+    elif kind == "tool_trong":
+        v = khac_df(k)
+        v = v[v.trang_thai == C.TRANG_THAI_TOOL_TRONG] if len(v) else v
+        if len(v) and st.button("🪄 Lấy PIM cũ cho tất cả ô này", key="sl_tt_all"):
+            for r in v.itertuples(index=False):
+                if r.pim_cu:
+                    dat_sua(r.cate, r.sku, r.ma, r.pim_cu, r.goc)
+            bump()
+            luu(["settings"], "Lấy PIM cũ cho ô tool trống")
+            st.rerun()
+        _loc_roi_grid(v, "sl_tt")
+    elif kind == "kich_thuoc":
+        _sua_kich_thuoc(k)
+    elif kind == "rong":
+        tab_rong(k)
+    elif kind == "ttm":
+        _sua_ttm_nhanh()
+    elif kind == "sku_bat_buoc":
+        h = dht()
+        v = h["sku"][~h["sku"]["Đủ bắt buộc"]] if len(h["sku"]) else h["sku"]
+        st.dataframe(v, hide_index=True, height=360)
+        st.caption("Cột bắt buộc đặt ở ⚙️ Cấu hình & mapping → ✅ Quy tắc kiểm tra.")
+    elif kind == "vi_pham":
+        h = dht()
+        v = h["vi_pham"][h["vi_pham"]["Mức"] == C.MUC_LOI] if len(h["vi_pham"]) else h["vi_pham"]
+        st.dataframe(v, hide_index=True, height=360)
+    elif kind == "model_lap":
+        mt = C.model_trung(ss.bang)
+        st.dataframe(pd.DataFrame({"model_code lặp": mt}), hide_index=True, height=320)
+        st.caption("Thường do thiếu variant_code ở IMPORT. Kiểm tra lại danh sách SKU (👀 Xem dữ liệu đã nạp).")
+    elif kind == "chua_map":
+        cm = pd.DataFrame(ss.meta.get("chua_map", []))
+        st.dataframe(cm, hide_index=True, height=360)
+        st.caption("Thêm mapping ở ⚙️ Cấu hình & mapping → 🧬 Mapping TSKT / 🧮 Mapping FILTER.")
+    elif kind == "khong_co_pim":
+        st.info("SKU mới chưa có trong file PIM cũ nên không đối chiếu được — bình thường. Nạp file export PIM "
+                "cũ (trang ①) nếu muốn đối chiếu.")
+    else:
+        st.info("Mục này không có bảng sửa riêng.")
+
+
+def khac_df(k: dict) -> pd.DataFrame:
+    return pd.DataFrame(k["khac"]) if k.get("khac") else pd.DataFrame(
+        columns=["sku", "model", "cate", "ma", "ten", "pim_cu", "tool_moi", "goc", "trang_thai", "da_sua"])
+
+
+def _loc_roi_grid(v: pd.DataFrame, key: str) -> None:
+    if not len(v):
+        st.success("✔ Không còn ô nào thuộc nhóm này.")
+        return
+    tim = st.text_input("🔎 Lọc theo SKU / giá trị", key=f"{key}_tim")
+    if tim:
+        t = tim.lower()
+        v = v[v.sku.str.lower().str.contains(t, regex=False) | v.tool_moi.str.lower().str.contains(t, regex=False)
+              | v.pim_cu.str.lower().str.contains(t, regex=False)]
+    st.caption(f"{len(v):,} ô" + (" — hiện 1.500 ô đầu" if len(v) > 1500 else ""))
+    _grid_khac(v.head(1500), key)
+
+
+def _sua_import_thieu(cot: str) -> None:
+    ten_cot = "Mã model" if cot == "model_code" else "Mã danh mục PIM"
+    imp = ss["import"]
+    thieu = imp[imp[cot].fillna("").astype(str).str.strip() == ""]
+    if not len(thieu):
+        st.success(f"✔ Mọi SKU đều có {ten_cot}.")
+        return
+    st.caption(f"Điền trực tiếp **{ten_cot}** cho {len(thieu):,} SKU bên dưới rồi bấm Lưu. (Sửa cả IMPORT ở 👀 Xem dữ liệu.)")
+    hien = thieu[["sku", "model_code", "variant_code", "category_code"]].reset_index().rename(
+        columns={"index": "_idx", "sku": "SKU", "model_code": "Mã model", "variant_code": "Mã biến thể",
+                 "category_code": "Mã danh mục PIM"}).head(2000)
+    ed = st.data_editor(hien, hide_index=True, height=min(480, 90 + 35 * len(hien)), key=f"ed_thieu_{cot}_{ss.ver}",
+                        disabled=["_idx", "SKU", "Mã biến thể"] + (["Mã danh mục PIM"] if cot == "model_code"
+                                                                   else ["Mã model"]),
+                        column_config={"_idx": None})
+    if st.button("💾 Lưu & map lại", type="primary", key=f"luu_thieu_{cot}"):
+        for _, r in ed.iterrows():
+            ss["import"].at[r["_idx"], cot] = C.chuan_hoa_key(r[ten_cot] if cot == "model_code"
+                                                              else r["Mã danh mục PIM"])
+        bump()
+        luu(["import"], f"Điền {ten_cot} cho SKU thiếu")
         chay_map_ui()
+        st.rerun()
+
+
+def _sua_filter_chu() -> None:
+    rows = []
+    for cate, b in ss.bang.items():
+        for code in C.cot_tt(b):
+            if not C.la_cot_filter(code):
+                continue
+            for r in b["rows"]:
+                v0, _ = C.bien_doi_o(cate, r["sku"], code, r["vals"].get(code, ""), ss.sua, ss.dv, ss.rong)
+                if v0 and re.search(r"[A-Za-zÀ-ỹ]", v0):
+                    rows.append({"sku": r["sku"], "cate": cate, "ma": code, "ten": b["ten"].get(code, ""),
+                                 "pim_cu": "", "tool_moi": v0, "goc": r["vals"].get(code, ""),
+                                 "trang_thai": "FILTER có chữ", "da_sua": False})
+    v = pd.DataFrame(rows)
+    if not len(v):
+        st.success("✔ Không còn ô FILTER nào chứa chữ.")
+        return
+    st.caption("Các ô FILTER còn chứa chữ (PIM chỉ nhận mã số). Sửa cột TOOL MỚI thành mã option, hoặc để trống. "
+               "Xem giải nghĩa để chọn đúng.")
+    _grid_khac(v.head(1000), "sl_fchu")
+
+
+def _sua_ttm_nhanh() -> None:
+    g = ttm()
+    v = g[(g.muc_do.isin([C.MUC_CAO, C.MUC_TB])) & (g.goi_y != "")] if len(g) else g
+    if not len(v):
+        st.success("✔ Không có điểm nghi sai nào có gợi ý.")
+        return
+    v = v.head(1000).reset_index(drop=True)
+    df = pd.DataFrame({"_cate": v.cate, "Mức": v.muc_do, "Loại": v.loai, "SKU": v.sku, "Mã TSKT": v.ma,
+                       "Tên": v.ten, "Giá trị hiện tại": v.gia_tri, "Gợi ý": v.goi_y, "Lý do": v.ly_do})
+    _bang_ap_dung(df, "ed_sl_ttm")
+
+
+def _sua_kich_thuoc(k: dict) -> None:
+    kt = [x for x in k["don_vi_cot"] if x["la_kt"]]
+    if not kt:
+        st.info("Không có cột kích thước / khối lượng trong các ngành đã map.")
+        return
+    cates = sorted({x["cate"] for x in kt}, key=lambda c: -sum(y["tong"] for y in kt if y["cate"] == c))
+    cate = st.selectbox("Ngành hàng", cates, format_func=lambda c: ss.bang[c]["title"] if c in ss.bang else c,
+                        key="skt_cate")
+    cols = [(x["code"], x["ten"], x["goi_y"]) for x in kt if x["cate"] == cate]
+    # --- (A) đơn vị theo cột ---
+    st.markdown("**① Đơn vị cho cột** (chỉ thêm vào ô SỐ TRƠN — đúng rule 66.py)")
+    du = pd.DataFrame({"Mã cột": [c for c, _, _ in cols], "Tên": [t for _, t, _ in cols],
+                       "Gợi ý": [g for _, _, g in cols],
+                       "ĐƠN VỊ": [ss.dv.get((cate, c), "") if isinstance(ss.dv.get((cate, c), ""), str) else ""
+                                  for c, _, _ in cols]})
+    edu = st.data_editor(du, hide_index=True, key=f"skt_dv_{cate}_{ss.ver}", disabled=["Mã cột", "Tên", "Gợi ý"],
+                         column_config={"ĐƠN VỊ": st.column_config.TextColumn(width="small",
+                                        help="cm, mm, kg, g, inch, lít…")})
+    cu = st.columns([1.5, 1.5, 3])
+    if cu[0].button("✨ Điền đơn vị gợi ý", key=f"skt_gy_{cate}"):
+        for c, _, g in cols:
+            if g and not ss.dv.get((cate, c)):
+                ss.dv[(cate, c)] = g
+        bump()
+        luu(["settings"], "Điền đơn vị gợi ý (kích thước)")
+        st.rerun()
+    if cu[1].button("▶ Áp đơn vị", type="primary", key=f"skt_apdv_{cate}"):
+        for i, (c, _, _) in enumerate(cols):
+            v = C.chuan_hoa_key(edu.at[i, "ĐƠN VỊ"] or "")
+            if v:
+                ss.dv[(cate, c)] = v
+            else:
+                ss.dv.pop((cate, c), None)
+        bump()
+        luu(["settings"], "Áp đơn vị kích thước")
+        st.rerun()
+    # --- (B) bảng SKU × dài/rộng/cao để sửa số bằng mắt ---
+    st.markdown("**② Bảng SKU × Dài · Rộng · Cao…** (sửa trực tiếp giá trị, như Excel)")
+    nhan, seen = [], {}
+    for c, t, _ in cols:
+        lb = (t or c).strip()
+        if lb in seen or not lb:
+            lb = f"{lb} · {c}" if lb else c
+        seen[lb] = c
+        nhan.append((c, lb))
+    rows = []
+    b = ss.bang[cate]
+    for r in b["rows"]:
+        d = {"SKU": r["sku"], "Model": r["model"]}
+        co = False
+        for c, lb in nhan:
+            v0, _ = C.bien_doi_o(cate, r["sku"], c, r["vals"].get(c, ""), ss.sua, ss.dv, ss.rong)
+            d[lb] = v0
+            if v0:
+                co = True
+        if co:
+            d["_sku"] = r["sku"]
+            rows.append(d)
+    if not rows:
+        st.info("Chưa có SKU nào có giá trị kích thước.")
+        return
+    tim = st.text_input("🔎 Lọc SKU", key=f"skt_tim_{cate}")
+    dfp = pd.DataFrame(rows)
+    if tim:
+        dfp = dfp[dfp["SKU"].str.contains(tim, case=False, regex=False)]
+    dfp = dfp.head(2000).reset_index(drop=True)
+    goc = {c: {r["_sku"]: r["vals"].get(c, "") for r in b["rows"]} for c, _ in nhan}
+    cot_sua = [lb for _, lb in nhan]
+    ed = st.data_editor(dfp.drop(columns=["_sku"]), hide_index=True, key=f"skt_pivot_{cate}_{ss.ver}",
+                        height=min(520, 90 + 35 * len(dfp)), disabled=["SKU", "Model"])
+    st.caption(f"{len(dfp):,} SKU. Sửa ô Dài/Rộng/Cao rồi bấm Lưu. Ô để trống = xoá giá trị đó.")
+    if st.button("💾 Lưu thay đổi kích thước & xem lại", type="primary", key=f"skt_luu_{cate}"):
+        nmap = dict(nhan)  # lb không có; cần map lb->code
+        lb2code = {lb: c for c, lb in nhan}
+        m = 0
+        for i in range(len(dfp)):
+            sku = dfp.at[i, "SKU"]
+            for lb in cot_sua:
+                code = lb2code[lb]
+                moi = C.chuan_hoa_key(ed.at[i, lb] or "")
+                cu_v = C.chuan_hoa_key(dfp.at[i, lb] or "")
+                if moi != cu_v:
+                    dat_sua(cate, sku, code, moi, goc[code].get(sku, ""))
+                    m += 1
+        bump()
+        luu(["settings"], f"Sửa {m} ô kích thước")
         st.rerun()
 
 
@@ -1692,6 +1972,56 @@ def _sku_rong() -> int:
         return 0
     return int(L.loc[(L["_loai"] == "it_thong_so") & (L["Mức"] == C.MUC_CAO), "Số SKU"].sum() +
                L.loc[L["_loai"] == "khong_data", "Số SKU"].sum())
+
+
+def khu_quy_doi_filter(L: pd.DataFrame) -> None:
+    f = L[(L["_loai"] == "filter") & (L["Mức"] != C.MUC_THAP)] if len(L) else L
+    st.caption("Giá trị CMS của cột FILTER không trùng tên option nào trong DATA PIM → ô FILTER bị TRỐNG. Chọn option "
+               "đúng cho từng giá trị rồi lưu: bảng quy đổi dùng chung, mọi lần map sau tự khớp.")
+    if not len(f):
+        st.success("✔ Không có giá trị FILTER nào bị rơi (ngoài các giá trị Không/Đang cập nhật).")
+    chon = {}
+    for i, (_, r) in enumerate(f.head(40).iterrows()):
+        ma, val = r["Mã cột"], r["Giá trị CMS"]
+        gy = r["_goi_y"] if isinstance(r.get("_goi_y"), (list, tuple)) else []
+        ds_opt = ss.opt["opt_ds"].get(ma, [])
+        nhan = {oc: f"{oc} — {tn}" for oc, tn in ds_opt}
+        thu_tu = [""] + [a for a, _ in gy] + [oc for oc, _ in ds_opt if oc not in {a for a, _ in gy}]
+        cc = st.columns([3, 4])
+        cc[0].markdown(f"**{ma}** · “{val}” · {r['Số SKU']} SKU")
+        chon[(ma, val)] = cc[1].selectbox("Option", thu_tu, key=f"qd_{i}_{ma}_{val}", label_visibility="collapsed",
+                                          format_func=lambda o, nh=nhan, g={a for a, _ in gy}:
+                                          "(chưa chọn)" if not o else ("⭐ " if o in g else "") + nh.get(o, o))
+    nhan_nut = "💾 Lưu quy đổi & map lại" if ss.admin else "📮 Gửi đề xuất quy đổi (dùng ngay cho bạn) & map lại"
+    if len(f) and st.button(nhan_nut, type="primary"):
+        items = []
+        for (ma, val), oc in chon.items():
+            if oc:
+                r = f[(f["Mã cột"] == ma) & (f["Giá trị CMS"] == val)].iloc[0]
+                items.append(C.tao_de_xuat(ss.user, ss.ten, C.PV_QUY_DOI, r["Ngành"], ma, val, oc,
+                                           ten_cot=ss.opt["ten_filter"].get(ma, ""), so_sku=int(r["Số SKU"]),
+                                           sku_vd=str(r["SKU ví dụ"]).split(",")[0].strip(),
+                                           ly_do="Giá trị CMS chưa có option trong DATA PIM"))
+        if items:
+            gui_de_xuat(items)
+            st.rerun()
+    if len(f) and not ss.admin:
+        st.caption("Đề xuất áp NGAY cho workspace của bạn; admin duyệt thì mọi người cùng dùng (trang 📮 Đề xuất sửa CMS).")
+    if ss.quy_doi:
+        with st.expander(f"Bảng quy đổi hiện có ({len(ss.quy_doi)})"):
+            qd = pd.DataFrame([{"Mã FILTER": k.split("\t")[0], "Giá trị CMS": k.split("\t")[1], "Option": v,
+                                "Tên option": ss.opt["opt_ten"].get((k.split("\t")[0], v), "❓"), "Xoá": False}
+                               for k, v in ss.quy_doi.items()])
+            ed = st.data_editor(qd, hide_index=True, key=f"ed_qd_{ss.ver}", disabled=["Mã FILTER", "Giá trị CMS",
+                                                                                    "Option", "Tên option"])
+            if st.button("🗑 Xoá dòng đã tick", disabled=not ss.admin) and ed["Xoá"].any():
+                for r in ed[ed["Xoá"]].itertuples(index=False):
+                    ss.quy_doi.pop(f"{r[0]}\t{r[1]}", None)
+                luu(["shared:quy_doi"], "Xoá quy đổi FILTER")
+                chay_map_ui()
+                st.rerun()
+    return
+
 
 
 def tab_doi_soat() -> None:
@@ -1757,51 +2087,7 @@ def tab_doi_soat() -> None:
             st.caption("Chỉ admin được sửa cấu hình/mapping dùng chung.")
         return
     if sub.startswith("🔁"):
-        f = L[(L["_loai"] == "filter") & (L["Mức"] != C.MUC_THAP)] if len(L) else L
-        st.caption("Giá trị CMS của cột FILTER không trùng tên option nào trong DATA PIM → ô FILTER bị TRỐNG. Chọn option "
-                   "đúng cho từng giá trị rồi lưu: bảng quy đổi dùng chung, mọi lần map sau tự khớp.")
-        if not len(f):
-            st.success("✔ Không có giá trị FILTER nào bị rơi (ngoài các giá trị Không/Đang cập nhật).")
-        chon = {}
-        for i, (_, r) in enumerate(f.head(40).iterrows()):
-            ma, val = r["Mã cột"], r["Giá trị CMS"]
-            gy = r["_goi_y"] if isinstance(r.get("_goi_y"), (list, tuple)) else []
-            ds_opt = ss.opt["opt_ds"].get(ma, [])
-            nhan = {oc: f"{oc} — {tn}" for oc, tn in ds_opt}
-            thu_tu = [""] + [a for a, _ in gy] + [oc for oc, _ in ds_opt if oc not in {a for a, _ in gy}]
-            cc = st.columns([3, 4])
-            cc[0].markdown(f"**{ma}** · “{val}” · {r['Số SKU']} SKU")
-            chon[(ma, val)] = cc[1].selectbox("Option", thu_tu, key=f"qd_{i}_{ma}_{val}", label_visibility="collapsed",
-                                              format_func=lambda o, nh=nhan, g={a for a, _ in gy}:
-                                              "(chưa chọn)" if not o else ("⭐ " if o in g else "") + nh.get(o, o))
-        nhan_nut = "💾 Lưu quy đổi & map lại" if ss.admin else "📮 Gửi đề xuất quy đổi (dùng ngay cho bạn) & map lại"
-        if len(f) and st.button(nhan_nut, type="primary"):
-            items = []
-            for (ma, val), oc in chon.items():
-                if oc:
-                    r = f[(f["Mã cột"] == ma) & (f["Giá trị CMS"] == val)].iloc[0]
-                    items.append(C.tao_de_xuat(ss.user, ss.ten, C.PV_QUY_DOI, r["Ngành"], ma, val, oc,
-                                               ten_cot=ss.opt["ten_filter"].get(ma, ""), so_sku=int(r["Số SKU"]),
-                                               sku_vd=str(r["SKU ví dụ"]).split(",")[0].strip(),
-                                               ly_do="Giá trị CMS chưa có option trong DATA PIM"))
-            if items:
-                gui_de_xuat(items)
-                st.rerun()
-        if len(f) and not ss.admin:
-            st.caption("Đề xuất áp NGAY cho workspace của bạn; admin duyệt thì mọi người cùng dùng (trang 📮 Đề xuất sửa CMS).")
-        if ss.quy_doi:
-            with st.expander(f"Bảng quy đổi hiện có ({len(ss.quy_doi)})"):
-                qd = pd.DataFrame([{"Mã FILTER": k.split("\t")[0], "Giá trị CMS": k.split("\t")[1], "Option": v,
-                                    "Tên option": ss.opt["opt_ten"].get((k.split("\t")[0], v), "❓"), "Xoá": False}
-                                   for k, v in ss.quy_doi.items()])
-                ed = st.data_editor(qd, hide_index=True, key=f"ed_qd_{ss.ver}", disabled=["Mã FILTER", "Giá trị CMS",
-                                                                                        "Option", "Tên option"])
-                if st.button("🗑 Xoá dòng đã tick", disabled=not ss.admin) and ed["Xoá"].any():
-                    for r in ed[ed["Xoá"]].itertuples(index=False):
-                        ss.quy_doi.pop(f"{r[0]}\t{r[1]}", None)
-                    luu(["shared:quy_doi"], "Xoá quy đổi FILTER")
-                    chay_map_ui()
-                    st.rerun()
+        khu_quy_doi_filter(L)
         return
     if not len(P):
         return
@@ -2045,15 +2331,21 @@ def tab_khac(k: dict) -> None:
                ". Sửa cột **TOOL MỚI** hoặc tick **Lấy PIM cũ**, rồi bấm **Áp dụng**.")
     if not len(v):
         return
+    _grid_khac(v, "khac")
+
+
+def _grid_khac(v: pd.DataFrame, key: str) -> None:
+    """Bảng sửa & đối chiếu kiểu Excel: cột TOOL MỚI sửa tay / tick Lấy PIM cũ, có giải nghĩa FILTER để soát bằng mắt."""
+    v = v.reset_index(drop=True)
     hien = pd.DataFrame({
         "SKU": v.sku, "NH": v.cate, "Mã TSKT": v.ma, "Tên": v.ten, "PIM cũ": v.pim_cu,
         "TOOL MỚI": v.tool_moi, "Giải nghĩa FILTER": [C.giai_nghia_filter(a, b, ss.opt) for a, b in zip(v.ma, v.tool_moi)],
         "Trạng thái": v.trang_thai, "Lấy PIM cũ": False, "✎": v.da_sua.map(lambda x: "✎" if x else "")})
-    ed = st.data_editor(hien, hide_index=True, height=460, key=f"ed_khac_{ss.ver}",
+    ed = st.data_editor(hien, hide_index=True, height=min(520, 90 + 35 * len(hien)), key=f"ed_{key}_{ss.ver}",
                         disabled=[c for c in hien.columns if c not in ("TOOL MỚI", "Lấy PIM cũ")],
                         column_config={"Lấy PIM cũ": st.column_config.CheckboxColumn(width="small"),
                                        "TOOL MỚI": st.column_config.TextColumn(width="medium")})
-    if st.button("✔ Áp dụng thay đổi", type="primary", key="ap_khac"):
+    if st.button("✔ Áp dụng thay đổi", type="primary", key=f"ap_{key}"):
         n = 0
         for i in range(len(v)):
             if ed.at[i, "Lấy PIM cũ"] and v.pim_cu[i]:

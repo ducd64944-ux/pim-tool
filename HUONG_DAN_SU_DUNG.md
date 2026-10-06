@@ -2,7 +2,7 @@
 
 > **Giao diện 3 vùng ngang** (giống 66.py), chọn ở thanh trên cùng:
 > 1. **🚀 Chạy pipeline**: ① Nạp (dữ liệu lô · data gốc · 👀 xem dữ liệu đã nạp) → ② 🚀 Map (xong tự chuyển sang vùng 2) → ③ Xuất file import.
-> 2. **🔍 Kiểm tra & Đối chiếu**: QC, đối soát, đơn vị dài·rộng·cao, gộp kích thước, Không/Đang cập nhật, khác spec PIM, gợi ý AI…
+> 2. **🔍 Kiểm tra & Đối chiếu**: tab **🛡️ QC tổng hợp** gom mọi lỗi; **bấm 1 dòng lỗi** để mở bảng xem & sửa riêng cho lỗi đó (sửa, đối chiếu bằng mắt như Excel). Ví dụ: dòng *Kích thước* mở bảng **SKU × Dài · Rộng · Cao · Sâu · Ngang · Khối lượng** để điền đơn vị và sửa số trực tiếp; dòng *Ô KHÁC spec PIM* mở bảng PIM cũ ↔ TOOL MỚI; dòng *FILTER không khớp* mở bảng chọn option đúng. Ngoài ra còn đối soát, gộp kích thước, Không/Đang cập nhật, gợi ý AI…
 > 3. **📋 Quản lý dữ liệu**: ⚙️ Cấu hình & mapping · 📮 Đề xuất sửa CMS · 🧰 Tra cứu · 📘 Hướng dẫn · 👥 Quản trị (admin).
 >
 > - **👀 Xem dữ liệu đã nạp**: xem IMPORT, DATA SP, SPEC, cấu hình, mapping, DATA PIM, đơn vị/biến đổi đã đặt — có ô tìm, không cần map.
