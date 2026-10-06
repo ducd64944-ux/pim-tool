@@ -1,7 +1,11 @@
 # Dùng hằng ngày — 3 bước
 
-> **Trang 📥 Nạp dữ liệu** gom cả 3 bước trên 1 trang: **① Nạp** (tab lô / tab Data gốc / tab 👀 Xem dữ liệu đã nạp) → **② 🚀 Map** → **③ Kiểm tra & đối chiếu** hiện ngay bên dưới (QC, đối soát, đơn vị dài·rộng·cao, gộp kích thước, Không/Đang cập nhật, khác spec PIM).
-> - **👀 Xem dữ liệu đã nạp**: xem được IMPORT, DATA SP, SPEC, cấu hình, mapping, DATA PIM, đơn vị/biến đổi đã đặt — có ô tìm, không cần map.
+> **Giao diện 3 vùng ngang** (giống 66.py), chọn ở thanh trên cùng:
+> 1. **🚀 Chạy pipeline**: ① Nạp (dữ liệu lô · data gốc · 👀 xem dữ liệu đã nạp) → ② 🚀 Map (xong tự chuyển sang vùng 2) → ③ Xuất file import.
+> 2. **🔍 Kiểm tra & Đối chiếu**: QC, đối soát, đơn vị dài·rộng·cao, gộp kích thước, Không/Đang cập nhật, khác spec PIM, gợi ý AI…
+> 3. **📋 Quản lý dữ liệu**: ⚙️ Cấu hình & mapping · 📮 Đề xuất sửa CMS · 🧰 Tra cứu · 📘 Hướng dẫn · 👥 Quản trị (admin).
+>
+> - **👀 Xem dữ liệu đã nạp**: xem IMPORT, DATA SP, SPEC, cấu hình, mapping, DATA PIM, đơn vị/biến đổi đã đặt — có ô tìm, không cần map.
 > - **🔄 Nạp lại TOÀN BỘ data gốc** (tab Data gốc, admin): thay toàn bộ cấu hình ngành + mapping TSKT + mapping FILTER + DATA PIM bằng file gốc (tuỳ chọn kèm dữ liệu lô).
 
 ## Cách nhanh nhất: trang 🏁 Làm nhanh (3 bước trên 1 trang)

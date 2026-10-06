@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.6 · 2026-10-06 (nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.6 · 2026-10-06 (3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -610,7 +610,7 @@ def so_cho_duyet() -> int:
     return sum(C.trang_thai_dx(d, ss.dx_duyet) == C.DX_CHO for d in ss.get("dx_tat_ca", []))
 
 
-def thanh_ben() -> str:
+def thanh_ben() -> None:
     with st.sidebar:
         st.markdown(f"### 🧩 PIM Tool\n👤 **{ss.ten}** (`{ss.user}`){' · 🛡️ admin' if ss.admin else ''}")
         if ss.admin:
@@ -623,10 +623,8 @@ def thanh_ben() -> str:
                 st.rerun()
         if ss.ws != ss.user:
             st.warning(f"Đang xem workspace của **{ss.ws}** — mọi thay đổi ghi vào workspace này.")
-        trang = st.radio("Đi tới", [t for t in TRANG if ss.admin or t != "👥 Quản trị"], key="trang",
-                         label_visibility="collapsed")
         if ss.admin and so_cho_duyet():
-            st.warning(f"📥 **{so_cho_duyet()} đề xuất sửa CMS chờ duyệt** → trang 📮")
+            st.warning(f"📥 **{so_cho_duyet()} đề xuất sửa CMS chờ duyệt** → 📋 Quản lý dữ liệu → 📮 Đề xuất")
         dm = dem_dx(ss.get("dx_rieng", []))
         if dm:
             st.caption(f"📮 Đề xuất của {'bạn' if ss.ws == ss.user else ss.ws}: ⏳ {dm.get(C.DX_CHO, 0)} chờ · "
@@ -652,7 +650,6 @@ def thanh_ben() -> str:
                 del ss[k]
             st.rerun()
         st.caption(APP_VERSION)
-    return trang
 
 
 # ============================================================================
@@ -1427,7 +1424,9 @@ def the_so(k: dict) -> None:
 
 
 def trang_map() -> None:
-    st.title("🚀 Map & kiểm tra")
+    st.title("🔍 Kiểm tra & Đối chiếu")
+    if ss.get("map_flash"):
+        st.success(ss.pop("map_flash"))
     c1, c2, c3 = st.columns([2, 3, 2])
     with c1:
         if st.button("① Map dữ liệu", type="primary", width="stretch"):
@@ -3209,6 +3208,66 @@ def trang_quan_tri() -> None:
                 f'ten = "Tên hiển thị"\nadmin = false', language="toml")
 
 
+def vung_chay() -> None:
+    """VÙNG 1 (giống tab 🚀 Chạy pipeline của 66.py): ① Nạp → ② Map → ③ Xuất."""
+    ph_so = st.container()
+    for m in ss.pop("flash", []) or []:
+        st.success(m)
+    st.markdown("### ① Nạp dữ liệu")
+    t1, t2, t3 = st.tabs(["Dữ liệu lô (SKU · CMS · file mẫu ngành)", "Data gốc (TSKT · FILTER · DATA PIM · cấu hình)",
+                          "👀 Xem dữ liệu đã nạp"])
+    with t1:
+        khu_nap_nhanh("nap")
+        with st.expander("Nạp riêng từng loại file (nâng cao)"):
+            khu_nap_rieng()
+    with t2:
+        khu_nap_mau()
+    with t3:
+        xem_du_lieu()
+    with ph_so:
+        c = st.columns(6)
+        c[0].metric("SKU trong IMPORT", f"{len(ss['import']):,}")
+        c[1].metric("Dòng DATA SP", f"{len(ss.data_sp):,}")
+        c[2].metric("Ngành có cấu hình", len(ss.cau_hinh))
+        c[3].metric("Mapping TSKT", f"{len(ss.map_tskt):,}")
+        c[4].metric("Mapping FILTER", f"{len(ss.map_filter):,}")
+        c[5].metric("Option DATA PIM", f"{len(ss.data_pim):,}")
+    st.divider()
+    xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
+    st.markdown("### ② Map")
+    cm = st.columns([1.2, 3])
+    if cm[0].button("🚀 Map dữ liệu", type="primary", disabled=not xong1, key="nap_nut_map", width="stretch"):
+        chay_map_ui()
+        if not bang_trong():
+            ss.map_flash = ss.get("map_msg", "")
+            ss.chuyen_vung = "🔍 Kiểm tra & Đối chiếu"  # như 66.py: map xong tự sang tab kiểm tra
+            st.rerun()
+    cm[1].caption(f"Map lần cuối: {ss.meta['luc']} — xem kết quả ở vùng 🔍 Kiểm tra & Đối chiếu." if ss.meta.get("luc") else
+                  ("Map xong tool tự chuyển sang vùng 🔍 Kiểm tra & Đối chiếu." if xong1 else
+                   "Cần có IMPORT và DATA SP trước."))
+    st.markdown("### ③ Xuất file import")
+    if bang_trong():
+        st.caption("Map xong mới xuất được.")
+    else:
+        xuat_gon("ln")
+        if ss.lich_su:
+            with st.expander("Lần xuất gần đây"):
+                st.dataframe(pd.DataFrame(ss.lich_su[-10:][::-1]), hide_index=True)
+
+
+def vung_du_lieu() -> None:
+    """VÙNG 3 (giống tab 📋 Quản lý dữ liệu của 66.py): cấu hình, mapping, đề xuất, tra cứu, hướng dẫn, quản trị."""
+    muc = {"⚙️ Cấu hình & mapping": trang_cau_hinh, "📮 Đề xuất sửa CMS": trang_de_xuat, "🧰 Tra cứu": trang_tra_cuu,
+           "📘 Hướng dẫn": trang_huong_dan}
+    if ss.admin:
+        muc["👥 Quản trị"] = trang_quan_tri
+    ds_muc = list(muc)
+    if ss.get("vung3") not in ds_muc:
+        ss.vung3 = ds_muc[0]
+    st.segmented_control("Mục", ds_muc, key="vung3", required=True, label_visibility="collapsed")
+    muc[ss.vung3]()
+
+
 # ============================================================================
 # CHẠY
 # ============================================================================
@@ -3219,8 +3278,18 @@ if "cau_hinh" not in ss:
 if ss.get("ws_da_nap") != ss.ws:
     with st.spinner(f"Đang tải workspace {ss.ws}…"):
         nap_workspace()
-trang = thanh_ben()
+thanh_ben()
 hien_xung_dot()
-{"🏁 Làm nhanh": trang_tong_quan, "📥 Nạp dữ liệu lô": trang_nap, "🚀 Map & kiểm tra": trang_map,
- "📤 Xuất file import": trang_xuat, "📮 Đề xuất sửa CMS": trang_de_xuat, "📘 Hướng dẫn": trang_huong_dan, "⚙️ Cấu hình & mapping": trang_cau_hinh, "🧰 Tra cứu": trang_tra_cuu,
- "👥 Quản trị": trang_quan_tri}[trang]()
+VUNG = ["🚀 Chạy pipeline", "🔍 Kiểm tra & Đối chiếu", "📋 Quản lý dữ liệu"]
+if ss.get("chuyen_vung") in VUNG:  # nhảy sang vùng khác (vd: map xong -> sang Kiểm tra) TRƯỚC khi vẽ ô chọn vùng
+    ss.vung = ss.pop("chuyen_vung")
+ss.setdefault("vung", VUNG[0])
+if ss.vung not in VUNG:
+    ss.vung = VUNG[0]
+st.segmented_control("Vùng làm việc", VUNG, key="vung", required=True, width="stretch", label_visibility="collapsed")
+if ss.vung == VUNG[0]:
+    vung_chay()
+elif ss.vung == VUNG[1]:
+    trang_map()
+else:
+    vung_du_lieu()
