@@ -1459,8 +1459,19 @@ NHAN_MAP_TEN = {"tat": "Tắt — chỉ theo mã PROPERTYID (đúng bản deskto
 
 
 def chay_map_ui() -> None:
-    if not len(ss.data_sp) or not len(ss["import"]):
-        st.error("Cần nạp DATA SP và IMPORT trước (trang 📥 Nạp dữ liệu lô).")
+    thieu_import = not len(ss.get("import", []))
+    thieu_dsp = not len(ss.get("data_sp", []))
+    if thieu_import or thieu_dsp:
+        chi_tiet = []
+        if thieu_import:
+            chi_tiet.append("**IMPORT** (danh sách SKU: model_code / sku / variant_code / category_code — "
+                            "từ file export PIM như `export_product...xlsx`)")
+        if thieu_dsp:
+            chi_tiet.append("**DATA SP** (dữ liệu thô CMS: PRODUCTID / PROPERTYID / PROPVALUE / CATEGORYID — "
+                            "từ file CMS export, mỗi SKU nhiều dòng)")
+        st.error("⚠️ Thiếu dữ liệu để map:\n\n" + "\n".join(f"- {x}" for x in chi_tiet) +
+                 "\n\nVào **🚀 Chạy pipeline → ① Nạp dữ liệu** (tab đầu) kéo thả file còn thiếu, "
+                 "hoặc dùng **Data gốc** nếu là file workspace theo mẫu (nhiều sheet).")
         return
     t = time.time()
     sk, gt, qd, n_rieng = qt()
@@ -3785,6 +3796,19 @@ ss.setdefault("vung", VUNG[0])
 if ss.vung not in VUNG:
     ss.vung = VUNG[0]
 st.segmented_control("Vùng làm việc", VUNG, key="vung", required=True, width="stretch", label_visibility="collapsed")
+
+# Thanh trạng thái: hiện NGAY các số then chốt (IMPORT · DATA SP · spec · bang · cấu hình). Giúp người
+# dùng BIẾT NGAY dữ liệu nào có / thiếu, không phải mò xuống dưới hoặc đoán.
+try:
+    _sb = st.columns([1, 1, 1, 1, 1, 1])
+    _sb[0].caption(f"**IMPORT**: {len(ss.get('import', [])):,} SKU")
+    _sb[1].caption(f"**DATA SP**: {len(ss.get('data_sp', [])):,} dòng")
+    _sb[2].caption(f"**spec PIM cũ**: {(ss.spec.sku.nunique() if ('spec' in ss and len(ss.spec)) else 0):,} SKU")
+    _sb[3].caption(f"**bang (đã map)**: {sum(len(b.get('rows', [])) for b in ss.get('bang', {}).values()):,} SKU · {len(ss.get('bang', {}))} ngành")
+    _sb[4].caption(f"**Cấu hình**: {len(ss.get('cau_hinh', {}))} ngành")
+    _sb[5].caption(f"**Mapping**: TSKT {len(ss.get('map_tskt', [])):,} · FILTER {len(ss.get('map_filter', [])):,}")
+except Exception:
+    pass
 if ss.vung == VUNG[0]:
     vung_chay()
 elif ss.vung == VUNG[1]:
