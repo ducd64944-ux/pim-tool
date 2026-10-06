@@ -682,6 +682,8 @@ def trang_tong_quan() -> None:
                 "DATA PIM dùng chung**.")
     for m in ss.pop("flash", []) or []:
         st.success(m)
+    for m in ss.pop("flash_err", []) or []:
+        st.error(m)
     xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
     with st.expander(f"{'✅' if xong1 else '①'} Bước 1 — Nạp dữ liệu (1 cục, tự nhận, tự lọc)", expanded=not xong1):
         khu_nap_nhanh("ln")
@@ -950,6 +952,8 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                 unsafe_allow_html=True)
     for m in ss.pop("flash", []) or []:
         st.success(m)
+    for m in ss.pop("flash_err", []) or []:
+        st.error(m)
     lan = ss.get(f"{key}_lan", 0)  # đổi khoá sau mỗi lần nạp -> ô chọn file / ô dán tự trống (không nạp lặp)
     fs = st.file_uploader("File (.xlsx / .xlsm / .csv) — chọn được nhiều file", type=["xlsx", "xlsm", "xls", "csv"],
                           accept_multiple_files=True, key=f"{key}_f{lan}")
@@ -1142,9 +1146,27 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         ss.data_sp = pd.concat([cu, moi], ignore_index=True).drop_duplicates(ignore_index=True)
         phan.append("data_sp")
     if loc and len(ss["import"]) and len(ss.data_sp):
-        ss.data_sp, tk = C.loc_data_sp(ss.data_sp.astype(object), ss["import"])
-        if tk["bo"]:
-            bao.append(f"đã lọc bỏ {tk['bo']:,} dòng DATA SP của {tk['sku_bo']:,} SKU không có trong IMPORT")
+        _data_sp_truoc = ss.data_sp.copy()
+        _loc_kq, tk = C.loc_data_sp(ss.data_sp.astype(object), ss["import"])
+        if tk["giu"] == 0 and tk["bo"] > 0:
+            # Catastrophic: 0 SKU khớp giữa DATA SP và IMPORT -> KHÔNG LỌC, giữ nguyên DATA SP và báo RÕ
+            ss.data_sp = _data_sp_truoc
+            _sku_dsp = set(ss.data_sp.PRODUCTCODE.unique()) if len(ss.data_sp) else set()
+            _sku_imp = set(ss["import"].sku.unique()) if len(ss["import"]) else set()
+            _vd_dsp = list(_sku_dsp)[:3]
+            _vd_imp = list(_sku_imp)[:3]
+            _msg = (f"⚠️ 2 FILE KHÔNG KHỚP NHAU — 0 SKU trùng. "
+                    f"IMPORT ({len(_sku_imp):,} SKU, vd: {', '.join(_vd_imp)}) vs "
+                    f"DATA SP ({len(_sku_dsp):,} SKU, vd: {', '.join(_vd_dsp)}). "
+                    f"Hai file xuất từ 2 lô / 2 nhóm sản phẩm KHÁC nhau. "
+                    f"Cần: file CMS export của ĐÚNG các SKU trong IMPORT. "
+                    f"Đã GIỮ NGUYÊN DATA SP ({len(ss.data_sp):,} dòng) để bạn upload file IMPORT đúng.")
+            ss.setdefault("flash_err", []).append(_msg)
+            bao.append(f"⚠️ 0 SKU IMPORT khớp DATA SP — xem khung đỏ phía trên")
+        else:
+            ss.data_sp = _loc_kq
+            if tk["bo"]:
+                bao.append(f"đã lọc bỏ {tk['bo']:,} dòng DATA SP của {tk['sku_bo']:,} SKU không có trong IMPORT")
         if "data_sp" not in phan:
             phan.append("data_sp")
     if "data_sp" in phan:
@@ -3722,6 +3744,8 @@ def vung_chay() -> None:
     ph_so = st.container()
     for m in ss.pop("flash", []) or []:
         st.success(m)
+    for m in ss.pop("flash_err", []) or []:
+        st.error(m)
     st.markdown("### ① Nạp dữ liệu")
     t1, t2, t3 = st.tabs(["Dữ liệu lô (SKU · CMS · file mẫu ngành)", "Data gốc (TSKT · FILTER · DATA PIM · cấu hình)",
                           "👀 Xem dữ liệu đã nạp"])
