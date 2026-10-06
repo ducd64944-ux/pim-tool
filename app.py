@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.6 · 2026-10-06 (nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.6 · 2026-10-06 (nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -802,6 +802,41 @@ def nhap_mau(w: dict, chon_lo: dict, chon_chung: list, ten_file: str) -> None:
         st.success("✔ Đã nạp: " + " · ".join(bao) + " — các vùng còn lại giữ nguyên.")
 
 
+def nap_lai_toan_bo(w: dict, kem_lo: bool, ten_file: str) -> None:
+    """Thay TOÀN BỘ data gốc dùng chung (cấu hình, mapping TSKT, mapping FILTER, DATA PIM) bằng nội dung file."""
+    if not duoc_sua_chung():
+        st.error("Chỉ admin được nạp lại data gốc.")
+        return
+    nap_shared()
+    phan, bao, giu = [], [], []
+    for k, ten in (("cau_hinh", "Cấu hình ngành"), ("map_tskt", "Mapping TSKT"), ("map_filter", "Mapping FILTER"),
+                   ("data_pim", "DATA PIM")):
+        v = w.get(k)
+        if v is None or not len(v):
+            giu.append(ten)
+            continue
+        ss[k] = v
+        phan.append(f"shared:{k}")
+        bao.append(f"{ten}: {len(v):,}" + (" ngành" if k == "cau_hinh" else " dòng"))
+    ss.opt = C.option_maps(ss.data_pim)
+    if kem_lo:
+        for k in ("import", "data_sp", "spec"):
+            if _so_vung(w, k):
+                ss[k] = C.nen_df(w[k]) if k != "import" else w[k]
+                phan.append(k)
+                bao.append(f"{k}: {len(w[k]):,}")
+        if w.get("don_vi"):
+            ss.dv.update({tuple(kk.split("\t")): v for kk, v in w["don_vi"].items()})
+        if w.get("chon_nganh"):
+            ss.chon_nganh = w["chon_nganh"]
+    if not phan:
+        st.warning("File không có phần data gốc nào để nạp.")
+        return
+    bump()
+    if luu(phan + ["settings"], f"Nạp lại toàn bộ data gốc từ {ten_file}"):
+        st.success("✔ Đã thay toàn bộ: " + " · ".join(bao) + (f" — giữ nguyên: {', '.join(giu)}" if giu else ""))
+
+
 def khu_nap_mau() -> None:
     st.markdown("<div class='buoc'><b>📦 Cách nhanh nhất:</b> nạp NGUYÊN file theo mẫu "
                 "(<i>du_lieu_pim.xlsx</i> / <i>TEST HÀNG LOẠT IMPORT THÔNG SỐ</i>: IMPORT, DATA SP, DATA PIM, CẤU HÌNH "
@@ -834,6 +869,20 @@ def khu_nap_mau() -> None:
     thieu = [c for c in sorted(nganh_lo) if c not in ss.cau_hinh and c not in w.get("cau_hinh", {})]
     if thieu:
         st.warning(f"Ngành chưa có cấu hình ở kho lẫn trong file: {', '.join(thieu)} — SKU các ngành này sẽ bị bỏ qua.")
+    with st.container(border=True):
+        st.markdown("##### 🔄 Nạp lại TOÀN BỘ data gốc")
+        st.caption("Thay **toàn bộ** Cấu hình ngành hàng · Mapping TSKT (master) · Mapping FILTER (master) · DATA PIM bằng "
+                   "nội dung file này (không gộp theo ngành — ngành nào không có trong file sẽ mất). Dùng khi muốn "
+                   "làm lại từ đầu theo file gốc. Phần chưa có trong file thì giữ nguyên. Chỉ admin.")
+        kem_lo = st.checkbox("Nạp kèm dữ liệu lô trong file (IMPORT · DATA SP · SPEC · đơn vị · chọn ngành) — ghi đè",
+                             value=False, key=f"goc_lo_{abs(hash(ss.get('mau_ten')))}")
+        ok_goc = st.checkbox("Tôi hiểu: dữ liệu dùng chung hiện tại sẽ bị thay bằng file này", value=False,
+                             key=f"goc_ok_{abs(hash(ss.get('mau_ten')))}", disabled=not duoc_sua_chung())
+        if st.button("🔄 Nạp lại toàn bộ", type="primary", disabled=not (ok_goc and duoc_sua_chung()),
+                     key=f"goc_nut_{abs(hash(ss.get('mau_ten')))}"):
+            nap_lai_toan_bo(w, kem_lo, f.name)
+            if kem_lo and st.session_state.get("tu_map_sau_nap", True):
+                chay_map_ui()
     st.markdown("##### Chọn vùng cần nạp — vùng không tick giữ nguyên, không bị đụng tới")
     ver = abs(hash(ss.get("mau_ten")))
     ds_lo = [(k, t, m) for k, t, m in VUNG_LO if _so_vung(w, k)]
@@ -1078,13 +1127,126 @@ def nut_xin_data(key: str) -> None:
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+def _loc_bang(df: pd.DataFrame, q: str, cot: list | None = None) -> pd.DataFrame:
+    q = (q or "").strip()
+    if not q or df is None or not len(df):
+        return df
+    cot = [c for c in (cot or list(df.columns)[:8]) if c in df.columns]
+    m = pd.Series(False, index=df.index)
+    for c in cot:
+        m |= df[c].astype(str).str.contains(q, case=False, regex=False, na=False)
+    return df[m]
+
+
+def xem_du_lieu() -> None:
+    """Xem NGAY dữ liệu đã nạp (không cần map): lô · data gốc · đơn vị đã đặt."""
+    st.caption("Xem những gì đang có trong tool. Gõ vào ô tìm để lọc (mã SKU, model, tên, mã cột…).")
+    tabs = st.tabs([f"📋 IMPORT ({len(ss['import']):,})", f"📦 DATA SP ({len(ss.data_sp):,})",
+                    f"🧾 SPEC PIM ({len(ss.spec):,})", f"🏷️ Cấu hình ({len(ss.cau_hinh)})",
+                    f"🧬 Mapping TSKT ({len(ss.map_tskt):,})", f"🧮 Mapping FILTER ({len(ss.map_filter):,})",
+                    f"🗂️ DATA PIM ({len(ss.data_pim):,})", "📏 Đơn vị & biến đổi đã đặt"])
+
+    def bang(i: int, df: pd.DataFrame, key: str, cot: list | None = None) -> None:
+        with tabs[i]:
+            if df is None or not len(df):
+                st.info("Chưa có dữ liệu.")
+                return
+            q = st.text_input("🔎 Tìm", key=f"xem_q_{key}", placeholder="gõ để lọc")
+            d = _loc_bang(df, q, cot)
+            st.caption(f"{len(d):,} / {len(df):,} dòng" + (" — hiện 1.000 dòng đầu" if len(d) > 1000 else ""))
+            st.dataframe(d.head(1000).astype(str), hide_index=True, height=360)
+    bang(0, ss["import"], "imp")
+    bang(1, ss.data_sp, "sp", ["PRODUCTCODE", "PRODUCTNAME", "PROPERTYNAME", "PROPVALUE", "CATEGORYID"])
+    bang(2, ss.spec, "spec", ["sku", "model_code", "ma", "ten", "gia_tri"])
+    with tabs[3]:
+        if not ss.cau_hinh:
+            st.info("Chưa có cấu hình ngành hàng.")
+        else:
+            rows = [{"Mã NH": c, "Tên ngành": v.get("ten", ""), "Số cột": len(v.get("cot", [])),
+                     "Danh sách cột": ", ".join(v.get("cot", []))} for c, v in sorted(ss.cau_hinh.items())]
+            st.dataframe(pd.DataFrame(rows), hide_index=True, height=360)
+    bang(4, ss.map_tskt, "mt")
+    bang(5, ss.map_filter, "mf")
+    bang(6, ss.data_pim, "dp")
+    with tabs[7]:
+        rows = []
+        for k, v in ss.dv.items():
+            if not v:
+                continue
+            if len(k) == 3:
+                rows.append({"Loại": "Biến đổi hàng loạt", "Ngành": k[0], "Mã cột": k[1],
+                             "Nội dung": " → ".join(f"{C.BD_KIEU.get(x['kieu'], x['kieu'])} [{x.get('a', '')}"
+                                                   f"{(' → ' + x['b']) if x.get('b') else ''}]" for x in v)})
+            else:
+                ten = ss.cau_hinh.get(k[0], {}).get("ten_cot", {}).get(k[1], "")
+                rows.append({"Loại": "Đơn vị theo cột", "Ngành": k[0], "Mã cột": f"{k[1]} {('— ' + ten) if ten else ''}".strip(),
+                             "Nội dung": v if isinstance(v, str) else str(v)})
+        if rows:
+            st.dataframe(pd.DataFrame(rows), hide_index=True, height=300)
+        else:
+            st.info("Chưa đặt đơn vị / biến đổi nào. Sau khi Map, vào bước ③ → tab **📏 Đơn vị & kích thước** "
+                    "để thêm đơn vị cho dài / rộng / cao / khối lượng…")
+        st.caption(f"Ô sửa tay: {len(ss.sua):,} · quy tắc Không/Đang cập nhật: "
+                   f"{len([v for v in ss.rong.values() if v[0] != C.HD_GIU])}")
+
+
 def trang_nap() -> None:
-    st.title("📥 Nạp dữ liệu lô")
-    with st.container(border=True):
+    st.title("📥 Nạp dữ liệu → Map → Kiểm tra đối chiếu")
+    ph_so = st.container()  # ô số liệu: vẽ SAU CÙNG để phản ánh dữ liệu vừa nạp trong cùng lượt
+
+    def ve_so() -> None:
+        with ph_so:
+            c = st.columns(6)
+            c[0].metric("SKU trong IMPORT", f"{len(ss['import']):,}")
+            c[1].metric("Dòng DATA SP", f"{len(ss.data_sp):,}")
+            c[2].metric("Ngành có cấu hình", len(ss.cau_hinh))
+            c[3].metric("Mapping TSKT", f"{len(ss.map_tskt):,}")
+            c[4].metric("Mapping FILTER", f"{len(ss.map_filter):,}")
+            c[5].metric("Option DATA PIM", f"{len(ss.data_pim):,}")
+    st.markdown("<div class='buoc'><b>① Nạp</b> (lô hoặc data gốc) → <b>② bấm Map</b> → <b>③ kiểm tra đối chiếu ngay "
+                "bên dưới</b>, thêm đơn vị / gộp kích thước, rồi sang trang 📤 Xuất.</div>", unsafe_allow_html=True)
+    t1, t2, t3 = st.tabs(["① Nạp dữ liệu lô", "🗄️ Data gốc (TSKT · FILTER · DATA PIM · cấu hình)", "👀 Xem dữ liệu đã nạp"])
+    with t1:
         khu_nap_nhanh("nap")
-    with st.expander("📦 Nạp file theo mẫu (chi tiết: chọn phần lô / phần dùng chung)"):
+        with st.expander("Nạp riêng từng loại file (nâng cao)"):
+            khu_nap_rieng()
+    with t2:
         khu_nap_mau()
-    st.markdown("##### Hoặc nạp từng loại file")
+    with t3:
+        xem_du_lieu()
+    st.divider()
+    xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
+    st.markdown("### ② Map")
+    cm = st.columns([1.2, 3])
+    if cm[0].button("🚀 Map dữ liệu", type="primary", disabled=not xong1, key="nap_nut_map", width="stretch"):
+        chay_map_ui()
+    cm[1].caption(f"Map lần cuối: {ss.meta['luc']}" if ss.meta.get("luc") else
+                  ("Bấm Map để sinh vùng kiểm tra đối chiếu." if xong1 else "Cần có IMPORT và DATA SP trước."))
+    if bang_trong():
+        ve_so()
+        return
+    st.markdown("### ③ Kiểm tra & đối chiếu")
+    k = kq()
+    the_so(k)
+    tb = st.tabs(["🛡️ QC tổng hợp", "🧾 Đối soát CMS → kết quả", "📏 Đơn vị & kích thước (dài · rộng · cao)",
+                  "📐 Gộp / tách kích thước", "🚫 Không / Đang cập nhật", "≠ Khác spec PIM"])
+    with tb[0]:
+        tab_qc(k)
+    with tb[1]:
+        tab_doi_soat()
+    with tb[2]:
+        tab_don_vi(k)
+    with tb[3]:
+        tab_tach_kt()
+    with tb[4]:
+        tab_rong(k)
+    with tb[5]:
+        tab_khac(k)
+    st.caption("Đủ bộ tab (cảnh báo, gợi ý AI, theo SKU…) ở trang 🚀 Map & kiểm tra. Kiểm tra xong → trang 📤 Xuất file import.")
+    ve_so()
+
+
+def khu_nap_rieng() -> None:
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("1. File CMS export → DATA SP")
