@@ -3,3 +3,9 @@ _du_lieu_cuc_bo/
 __pycache__/
 *.pyc
 .venv/
+
+# file tạm do tests/so_sanh_desktop_file_that.py sinh ra
+out_desk/
+ws_desk.xlsx
+out_web/
+*.zip
