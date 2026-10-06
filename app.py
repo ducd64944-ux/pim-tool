@@ -25,21 +25,117 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.9 · 2026-10-06 (AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.9.1 · 2026-10-06 (giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-#MainMenu, footer {visibility: hidden;}
-div[data-testid="stMetric"] {background: #f6f8fd; border: 1px solid #e3e8f4; border-radius: 10px; padding: 8px 12px;}
-div[data-testid="stMetricValue"] {font-size: 1.45rem;}
-.buoc {background:#eef4ff;border-left:4px solid #2f6fed;padding:8px 12px;border-radius:6px;margin:4px 0 10px 0;}
-.canh {background:#fff4f2;border-left:4px solid #c0392b;padding:8px 12px;border-radius:6px;margin:4px 0 10px 0;}
-.pill {display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:600;margin-right:6px;}
-.pill-cao{background:#fdeaea;color:#c0392b;} .pill-tb{background:#fff3e0;color:#d97706;}
-.pill-thap{background:#e8f6ec;color:#1b873f;} .pill-tt{background:#eaf1fb;color:#2f6fed;}
-.card {background:#f8fafd;border:1px solid #e3e8f4;border-radius:10px;padding:10px 14px;margin:6px 0 10px 0;}
-.card-h {font-weight:700;} .card-s {color:#5a6b85;font-size:.88rem;}
+:root {
+  --ink: #0f172a; --ink-2: #334155; --ink-3: #64748b; --line: #e2e8f0; --line-2: #f1f5f9;
+  --bg: #ffffff; --bg-2: #f8fafc; --bg-3: #f1f5f9;
+  --brand: #1e40af; --brand-2: #3b82f6; --brand-tint: #eff6ff;
+  --ok: #16a34a; --ok-tint: #ecfdf5; --warn: #d97706; --warn-tint: #fffbeb;
+  --err: #dc2626; --err-tint: #fef2f2;
+}
+html, body, [class*="css"], .stApp {font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
+#MainMenu, footer, header {visibility: hidden;}
+.block-container {padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1480px;}
+.stApp {background: var(--bg-2);}
+h1 {font-weight: 700; letter-spacing:-.3px; font-size: 1.4rem; color: var(--ink); margin: .2rem 0 .4rem;}
+h2 {font-weight: 700; font-size: 1.1rem; color: var(--ink); margin: .8rem 0 .4rem; letter-spacing:-.2px;}
+h3 {font-weight: 600; font-size: 1rem; color: var(--ink); margin: .6rem 0 .3rem;}
+h4, h5, h6 {font-weight: 600; color: var(--ink-2);}
+p, li, .stMarkdown {color: var(--ink-2); line-height: 1.55;}
+hr {border: 0; border-top: 1px solid var(--line); margin: 1rem 0;}
+
+/* Brand bar */
+.brand-bar {background: linear-gradient(90deg, #0f172a 0%, #1e40af 100%);
+  color: #fff; padding: 12px 20px; border-radius: 12px; margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  box-shadow: 0 2px 8px rgba(15,23,42,.15);}
+.brand-bar .logo {font-weight: 800; font-size: 1.15rem; letter-spacing:-.2px; display:flex; gap:10px; align-items:center;}
+.brand-bar .logo .dot {width:10px; height:10px; border-radius:50%; background:#60a5fa; box-shadow:0 0 10px #60a5fa;}
+.brand-bar .meta {font-size: .82rem; opacity: .85; display:flex; gap:14px;}
+.brand-bar .meta .chip {background: rgba(255,255,255,.14); padding: 3px 10px; border-radius: 999px;}
+
+/* Metric tiles */
+div[data-testid="stMetric"] {background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; box-shadow: 0 1px 2px rgba(15,23,42,.03);}
+div[data-testid="stMetricValue"] {font-size: 1.3rem; font-weight: 700; color: var(--ink);}
+div[data-testid="stMetricLabel"] {font-size: .78rem; color: var(--ink-3);}
+div[data-testid="stMetricLabel"] p {font-size: .78rem; color: var(--ink-3);}
+
+/* Buttons */
+.stButton>button {border-radius: 8px; font-weight: 500; border: 1px solid var(--line); background: var(--bg);
+  color: var(--ink-2); padding: 6px 14px; transition: all .15s;}
+.stButton>button:hover {border-color: var(--brand-2); color: var(--brand); background: var(--brand-tint);}
+.stButton>button[kind="primary"] {background: var(--brand); color: #fff; border-color: var(--brand);
+  box-shadow: 0 1px 3px rgba(30,64,175,.3); font-weight: 600;}
+.stButton>button[kind="primary"]:hover {background: var(--brand-2); border-color: var(--brand-2); color: #fff;}
+
+/* Containers / cards */
+div[data-testid="stContainerBorderless"], div[data-testid="stContainer"] {border-radius: 10px;}
+div[data-testid="stContainer"][class*="st-emotion"] {background: var(--bg);}
+div[data-testid="stExpander"] {border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  box-shadow: 0 1px 2px rgba(15,23,42,.03);}
+div[data-testid="stExpander"] summary {font-weight: 500; color: var(--ink);}
+
+/* Tabs */
+div[data-baseweb="tab-list"] {gap: 2px; border-bottom: 1px solid var(--line);}
+button[data-baseweb="tab"] {border-radius: 8px 8px 0 0; font-weight: 500; color: var(--ink-3);
+  padding: 8px 14px; background: transparent;}
+button[data-baseweb="tab"][aria-selected="true"] {color: var(--brand); background: var(--brand-tint);
+  font-weight: 600;}
+
+/* Segmented control (vùng làm việc) */
+div[data-testid="stSegmentedControl"] button {background: var(--bg); border: 1px solid var(--line);
+  color: var(--ink-2); font-weight: 500; padding: 10px 16px;}
+div[data-testid="stSegmentedControl"] button[aria-pressed="true"] {background: var(--brand);
+  color: #fff; border-color: var(--brand); box-shadow: 0 1px 3px rgba(30,64,175,.25);}
+
+/* Dataframes */
+div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {border: 1px solid var(--line);
+  border-radius: 10px; overflow: hidden;}
+
+/* Alerts */
+div[data-testid="stAlert"] {border-radius: 10px; border: 1px solid var(--line); padding: 10px 14px;}
+div[data-testid="stAlertContentSuccess"] {background: var(--ok-tint); color: #065f46;}
+div[data-testid="stAlertContentWarning"] {background: var(--warn-tint); color: #92400e;}
+div[data-testid="stAlertContentError"] {background: var(--err-tint); color: #991b1b;}
+div[data-testid="stAlertContentInfo"] {background: var(--brand-tint); color: #1e3a8a;}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {background: var(--bg); border-right: 1px solid var(--line);}
+section[data-testid="stSidebar"] .stMarkdown {color: var(--ink-2);}
+
+/* Status strip */
+.status-strip {background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; margin: 8px 0 14px; display: flex; gap: 18px; flex-wrap: wrap;
+  font-size: .83rem; color: var(--ink-3); align-items: center;
+  box-shadow: 0 1px 2px rgba(15,23,42,.03);}
+.status-strip .st-item {display: flex; align-items: center; gap: 6px;}
+.status-strip .st-item b {color: var(--ink); font-weight: 700;}
+.status-strip .st-item.zero b {color: var(--ink-3); font-weight: 500;}
+.status-strip .st-sep {color: var(--line); font-size: 1rem;}
+
+/* Legacy classes giữ cho tương thích */
+.buoc {background: var(--brand-tint); border-left: 3px solid var(--brand); padding: 10px 14px;
+  border-radius: 8px; margin: 6px 0 12px; color: var(--ink-2);}
+.canh {background: var(--err-tint); border-left: 3px solid var(--err); padding: 10px 14px;
+  border-radius: 8px; margin: 6px 0 12px; color: var(--ink-2);}
+.pill {display:inline-block; padding: 3px 10px; border-radius: 999px; font-size: .78rem;
+  font-weight: 600; margin-right: 6px;}
+.pill-cao{background: var(--err-tint); color: var(--err);}
+.pill-tb{background: var(--warn-tint); color: var(--warn);}
+.pill-thap{background: var(--ok-tint); color: var(--ok);}
+.pill-tt{background: var(--brand-tint); color: var(--brand);}
+.card {background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin: 8px 0 12px; box-shadow: 0 1px 2px rgba(15,23,42,.03);}
+.card-h {font-weight: 700; color: var(--ink); font-size: 1.02rem;}
+.card-s {color: var(--ink-3); font-size: .88rem;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -3985,9 +4081,22 @@ if ss.get("chuyen_vung") in VUNG:  # nhảy sang vùng khác (vd: map xong -> sa
 ss.setdefault("vung", VUNG[0])
 if ss.vung not in VUNG:
     ss.vung = VUNG[0]
+# Brand bar: logo + user + workspace (gửi sếp xem cho đẹp)
+try:
+    _ad = " · 🛡️ Admin" if ss.get("admin") else ""
+    _ws = f"Workspace: <b>{ss.ws}</b>"
+    st.markdown(
+        f'<div class="brand-bar">'
+        f'<div class="logo"><span class="dot"></span>PIM Tool <span style="opacity:.6;font-weight:500;font-size:.9rem">· CMS → PIM</span></div>'
+        f'<div class="meta"><span class="chip">👤 {ss.ten}{_ad}</span>'
+        f'<span class="chip">{_ws}</span></div>'
+        f'</div>', unsafe_allow_html=True)
+except Exception:
+    pass
+
 st.segmented_control("Vùng làm việc", VUNG, key="vung", required=True, width="stretch", label_visibility="collapsed")
 
-# Thanh trạng thái NGANG 1 dòng (giống bản desktop): hiện ngay số then chốt.
+# Thanh trạng thái: card ngang với màu tắt khi 0
 try:
     _s_imp = len(ss.get('import', []))
     _s_dsp = len(ss.get('data_sp', []))
@@ -3998,9 +4107,29 @@ try:
     _s_mt = len(ss.get('map_tskt', []))
     _s_mf = len(ss.get('map_filter', []))
     _s_hoc = sum(len(v) for v in (ss.get('ai_hoc') or {}).values())
-    st.caption(f"📋 IMPORT **{_s_imp:,}** · 📦 DATA SP **{_s_dsp:,}** · 🧾 spec cũ **{_s_spec:,}** · "
-               f"🗂️ bang **{_s_bang_sku:,}** SKU / {_s_bang_cate} ngành · 🏷️ Cấu hình **{_s_ch}** ngành · "
-               f"🧬 Mapping TSKT **{_s_mt:,}** · FILTER **{_s_mf:,}** · 🧠 AI học **{_s_hoc}** cột")
+    def _it(ic, nhan, val, don_vi=""):
+        cls = " zero" if (isinstance(val, int) and val == 0) else ""
+        return f'<span class="st-item{cls}">{ic} {nhan} <b>{val:,}</b>{(" " + don_vi) if don_vi else ""}</span>'
+    _html = (
+        '<div class="status-strip">'
+        + _it("📋", "IMPORT", _s_imp, "SKU")
+        + '<span class="st-sep">•</span>'
+        + _it("📦", "DATA SP", _s_dsp, "dòng")
+        + '<span class="st-sep">•</span>'
+        + _it("🧾", "spec cũ", _s_spec, "SKU")
+        + '<span class="st-sep">•</span>'
+        + _it("🗂️", "bang", _s_bang_sku, f"SKU/{_s_bang_cate} ngành")
+        + '<span class="st-sep">•</span>'
+        + _it("🏷️", "Cấu hình", _s_ch, "ngành")
+        + '<span class="st-sep">•</span>'
+        + _it("🧬", "Mapping TSKT", _s_mt)
+        + '<span class="st-sep">•</span>'
+        + _it("🧮", "FILTER", _s_mf)
+        + '<span class="st-sep">•</span>'
+        + _it("🧠", "AI học", _s_hoc, "cột")
+        + '</div>'
+    )
+    st.markdown(_html, unsafe_allow_html=True)
 except Exception:
     pass
 if ss.vung == VUNG[0]:
