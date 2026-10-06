@@ -253,16 +253,24 @@ class Store:
                 return True, f"Đã lưu {len(doi)} file (cục bộ).", list(doi), {}
             return self._luu_github(doi, thong_diep, kv)
 
-    def _dam_bao_repo_co_commit(self) -> None:
+    def _dam_bao_repo_co_commit(self) -> str:
+        """Repo trống -> tạo commit đầu. Trả về chuỗi lỗi (rỗng nếu ổn) để báo rõ cho người dùng."""
         r = self._req("GET", f"/repos/{self.repo}/git/ref/heads/{self.branch}", headers=self._h())
-        if r.status_code in (404, 409):  # repo trống: tạo commit đầu bằng Contents API
-            self._req("PUT", f"/repos/{self.repo}/contents/{self._p('README.md')}", headers=self._h(),
-                      json={"message": "Khởi tạo kho dữ liệu PIM tool", "branch": self.branch,
-                            "content": base64.b64encode("Kho dữ liệu của PIM tool.\n".encode()).decode()})
+        if r.status_code in (404, 409):
+            w = self._req("PUT", f"/repos/{self.repo}/contents/{self._p('README.md')}", headers=self._h(),
+                          json={"message": "Khởi tạo kho dữ liệu PIM tool", "branch": self.branch,
+                                "content": base64.b64encode("Kho dữ liệu của PIM tool.\n".encode()).decode()})
+            if w.status_code not in (200, 201, 422):
+                return (f"Kho dữ liệu đang trống và không tự khởi tạo được ({w.status_code}). Kiểm tra token có quyền "
+                        f"Contents: Read and write cho repo {self.repo}, hoặc tạo repo với 'Add a README file'. "
+                        f"Chi tiết: {w.text[:150]}")
+        return ""
 
     def _luu_github(self, doi: Dict[str, Optional[bytes]], thong_diep: str,
                     kv: Dict[str, str]) -> Tuple[bool, str, List[str], Dict[str, str]]:
-        self._dam_bao_repo_co_commit()
+        loi_kd = self._dam_bao_repo_co_commit()
+        if loi_kd:
+            return False, loi_kd, [], {}
         loi = ""
         blob_sha: Dict[str, str] = {}
         for lan in range(8):
