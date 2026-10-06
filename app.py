@@ -924,6 +924,8 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         elif r.get("loai") == "cms":
             d = r.get("data_sp")
             nd = f"{len(d):,} dòng · {d.PRODUCTCODE.nunique():,} SKU" if d is not None and len(d) else ""
+        elif r.get("loai") == "nganh":
+            nd = " · ".join(f"{v['ten']} ({c}): {len(v['cot'])} cột" for c, v in r["cau_hinh"].items())
         elif r.get("loai") == "sku":
             nd = (f"{len(r['import']):,} SKU · {(r['import'].model_code != '').sum():,} có model · "
                   f"{(r['import'].variant_code != '').sum():,} có biến thể · {len(r['spec']):,} ô TSKT/FILTER")
@@ -950,6 +952,24 @@ def khu_nap_nhanh(key: str = "nn") -> None:
     loc = c[2].checkbox("Tự lọc DATA SP: chỉ giữ SKU có trong IMPORT", value=True, key=f"{key}_loc")
     tu_map = c[3].checkbox("Map + QC luôn sau khi nạp", value=True, key=f"{key}_map")
     lay_chung = False
+    ds_ng = [(ten, r) for ten, r in kq if r.get("loai") == "nganh"]
+    lay_ng = False
+    if ds_ng:
+        moi_ng = {c: v for _, r in ds_ng for c, v in r["cau_hinh"].items()}
+        for c, v in moi_ng.items():
+            cu = ss.cau_hinh.get(c)
+            if cu:
+                them = [x for x in v["cot"] if x not in cu.get("cot", [])]
+                bo = [x for x in cu.get("cot", []) if x not in v["cot"]]
+                st.info(f"🏷️ Ngành **{v['ten']} ({c})** đã có cấu hình ({len(cu.get('cot', []))} cột) → file mới "
+                        f"{len(v['cot'])} cột: thêm {len(them)} · bỏ {len(bo)}" + (f" ({', '.join(bo[:6])}…)" if bo else ""))
+            else:
+                st.info(f"🏷️ Ngành **{v['ten']} ({c})** chưa có trong tool → sẽ thêm mới với {len(v['cot'])} cột thuộc tính. "
+                        "Sau đó nạp mapping TSKT/FILTER của ngành này (file CMS/mapping) để map được dữ liệu.")
+        lay_ng = st.checkbox("Cập nhật Cấu hình ngành hàng từ file mẫu ngành (dùng chung)", value=duoc_sua_chung(),
+                             disabled=not duoc_sua_chung(), key=f"{key}_ng")
+        if not duoc_sua_chung():
+            st.caption("Chỉ admin cập nhật cấu hình dùng chung.")
     if co_mau:
         lay_chung = st.checkbox("File mẫu: cập nhật mapping / cấu hình / DATA PIM dùng chung (gộp theo ngành)",
                                 value=False, disabled=not duoc_sua_chung(), key=f"{key}_chung",
@@ -957,6 +977,14 @@ def khu_nap_nhanh(key: str = "nn") -> None:
     if not st.button("✔ Nạp vào tool", type="primary", key=f"{key}_ok"):
         return
     imp, spec, sp = [], [], []
+    da_ng = []
+    if ds_ng and lay_ng and duoc_sua_chung():
+        nap_shared()
+        ch = dict(ss.cau_hinh)
+        ch.update(moi_ng)
+        ss.cau_hinh = ch
+        luu(["shared:cau_hinh"], "Nạp cấu hình ngành từ file mẫu: " + ", ".join(t for t, _ in ds_ng))
+        da_ng = [f"{v['ten']} ({c}) {len(v['cot'])} cột" for c, v in moi_ng.items()]
     for ten, r in kq:
         if r.get("loai") == "mau":
             if lay_chung and duoc_sua_chung():
@@ -1011,6 +1039,16 @@ def khu_nap_nhanh(key: str = "nn") -> None:
     if "data_sp" in phan:
         ss.data_sp = C.nen_df(ss.data_sp)
         bao.append(f"DATA SP {len(ss.data_sp):,} dòng")
+    if da_ng:
+        bao.insert(0, "Cấu hình ngành " + "; ".join(da_ng))
+        if not phan:
+            bump()
+            ss.flash = ["✔ Đã nạp: " + " · ".join(bao)]
+            ss.pop(f"{key}_sig", None)
+            ss[f"{key}_lan"] = lan + 1
+            if len(ss["import"]) and len(ss.data_sp):
+                chay_map_ui()
+            st.rerun()
     bump()
     if phan and luu(phan + ["settings"], "Nạp nhanh: " + ", ".join(t for t, _ in kq)):
         ss.flash = ["✔ Đã nạp: " + " · ".join(bao)]

@@ -2487,7 +2487,41 @@ def xuat_workspace_mau(imp: pd.DataFrame, data_sp: pd.DataFrame, data_pim: pd.Da
 # ============================================================================
 # §13 NẠP NHANH 1 CỤC (tự nhận loại file) + TỰ LỌC + FILE XIN DATA CMS
 # ============================================================================
-LOAI_FILE = {"mau": "Workspace theo mẫu (nhiều sheet)", "cms": "File CMS export (DATA SP)",
+def doc_mau_nganh(rows: List[list]) -> Dict[str, dict]:
+    """File "Export Product Template" của 1 ngành (PIM): dòng 1 = [tên ngành | mã ngành | mã cột thuộc tính…],
+    dòng 2 = [trống | trống | tên tiếng Việt từng cột]. Không có dòng dữ liệu. -> cấu hình ngành
+    {mã ngành: {"ten", "cot", "ten_cot"}} (giống CẤU HÌNH CATEGORY). Không đúng bố cục -> {}."""
+    if not rows or len(rows) > 3:
+        return {}
+    r1 = [chuan_hoa_key(x) for x in rows[0]]
+    if len(r1) < 4:
+        return {}
+    a, b = r1[0], r1[1]
+    id_a, id_b = chuan_hoa_id(a), chuan_hoa_id(b)
+    if re.fullmatch(r"\d+", id_b or "") and a and not re.fullmatch(r"\d+", id_a or ""):
+        cate, ten = id_b, a
+    elif re.fullmatch(r"\d+", id_a or "") and b and not re.fullmatch(r"\d+", id_b or ""):
+        cate, ten = id_a, b
+    else:
+        return {}
+    ma = [(j, v) for j, v in enumerate(r1) if j >= 2 and v]
+    if len(ma) < 2 or not all(re.fullmatch(r"[A-Za-z0-9_]+", v) for _, v in ma) or not any("_" in v for _, v in ma):
+        return {}
+    r2 = [chuan_hoa_key(x) for x in rows[1]] if len(rows) > 1 else []
+    if len(rows) > 2 and any(chuan_hoa_key(x) for x in rows[2]):
+        return {}  # có dòng dữ liệu -> không phải file mẫu trống
+    cot, ten_cot = [], {}
+    for j, v in ma:
+        if v.lower() in COT_KHONG_DIEN or v in cot:
+            continue
+        cot.append(v)
+        if j < len(r2) and r2[j]:
+            ten_cot[v] = r2[j]
+    return {cate: {"ten": ten, "cot": cot, "ten_cot": ten_cot}} if cot else {}
+
+
+LOAI_FILE = {"nganh": "File mẫu ngành hàng (Export Product Template) → Cấu hình ngành",
+             "mau": "Workspace theo mẫu (nhiều sheet)", "cms": "File CMS export (DATA SP)",
              "sku": "Danh sách SKU / file export PIM (model, SKU, biến thể ± TSKT)"}
 
 
@@ -2498,6 +2532,11 @@ def nhan_dien_file(data: bytes, ten_file: str) -> dict:
     if {"IMPORT", "DATA SP"} & set(ten) and len(ten) > 1 or "MAPPING TSKT MOI" in ten:
         w = doc_workspace_cu(data, ten_file)
         return {"loai": "mau", **w}
+    cfg_ng: Dict[str, dict] = {}
+    for sh in ten:
+        cfg_ng.update(doc_mau_nganh(so.rows(sh)))
+    if cfg_ng:
+        return {"loai": "nganh", "cau_hinh": cfg_ng}
     for sh in ten:
         rows = so.rows(sh)
         if not rows:

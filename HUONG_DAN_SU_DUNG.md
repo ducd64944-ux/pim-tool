@@ -10,6 +10,7 @@ Tool **tự nhận loại file**:
 - **File CMS export** → DATA SP:
   - tiêu đề tiếng Anh/Việt, có/không dấu đều nhận (Mã ERP, Mã thuộc tính, Giá trị…);
   - không có tiêu đề thì đọc theo vị trí cột A–G như 66.py.
+- **File mẫu ngành hàng** (`Export Product Template`: dòng 1 = tên ngành, mã ngành, các mã cột thuộc tính; dòng 2 = tên cột; không có dữ liệu) → thêm/cập nhật **Cấu hình ngành hàng** (danh sách cột TSKT/FILTER). Tool báo ngành mới hay thêm/bỏ bao nhiêu cột so với cấu hình cũ. Chỉ admin cập nhật. Sau đó nạp mapping của ngành để map được dữ liệu.
 - **Danh sách SKU / file export PIM** (model, SKU, biến thể, category, kèm hoặc không kèm cột TSKT/FILTER):
   - tên cột tuỳ ý (Mã model, Mã sản phẩm ERP, Mã biến thể…);
   - **không có tiêu đề thì tool đoán theo nội dung** (cột số dài nhất là SKU…), có bảng xem trước để kiểm tra lại;
