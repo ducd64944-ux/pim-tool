@@ -4,6 +4,7 @@
 > 1. **🚀 Chạy pipeline**: ① Nạp (dữ liệu lô · data gốc · 👀 xem dữ liệu đã nạp) → ② 🚀 Map (xong tự chuyển sang vùng 2) → ③ Xuất file import.
 > 2. **🔍 Kiểm tra & Đối chiếu**: tab **🛡️ QC tổng hợp** gom mọi lỗi; **bấm 1 dòng lỗi** để mở bảng xem & sửa riêng cho lỗi đó (sửa, đối chiếu bằng mắt như Excel). Ví dụ: dòng *Kích thước* mở bảng **SKU × Dài · Rộng · Cao · Sâu · Ngang · Khối lượng** để điền đơn vị và sửa số trực tiếp; dòng *Ô KHÁC spec PIM* mở bảng PIM cũ ↔ TOOL MỚI; dòng *FILTER không khớp* mở bảng chọn option đúng. Ngoài ra còn đối soát, gộp kích thước, Không/Đang cập nhật, gợi ý AI…
 > 2b. Cuối vùng **🔍 Kiểm tra & Đối chiếu** có **④ Xuất file import**: chọn ngành ở CHỌN NGÀNH HÀNG → bấm 📤 Tạo file import (file MODEL / BIENTHE, bỏ cột sku, mọi ô Text — đúng chuẩn 66.py), tải thêm 📊 báo cáo kiểm tra và 📦 workspace theo mẫu. Vùng 🚀 Chạy pipeline cũng có ③ Xuất nhanh.
+> 2c. Tab **✅ Kiểm chứng SKU ↔ DATA SP** (vùng Kiểm tra): truy ngược từng ô kết quả về DATA SP của chính SKU đó. Hiện ✔ khi 100% khớp; có lỗi LỆCH SKU / không có nguồn thì báo từng ô và chặn xuất. Xuất file chỉ hỏi tick xác nhận khi còn lỗi chặn (lệch SKU, thiếu model/category, FILTER sai mã); lưu ý thường không cần tick.
 > 3. **📋 Quản lý dữ liệu**: ⚙️ Cấu hình & mapping · 📮 Đề xuất sửa CMS · 🧰 Tra cứu · 📘 Hướng dẫn · 👥 Quản trị (admin).
 >
 > - **👀 Xem dữ liệu đã nạp**: xem IMPORT, DATA SP, SPEC, cấu hình, mapping, DATA PIM, đơn vị/biến đổi đã đặt — có ô tìm, không cần map.

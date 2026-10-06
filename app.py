@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.9.1 · 2026-10-06 (giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.0 · 2026-10-07 (kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -41,7 +41,13 @@ st.markdown("""
   --err: #dc2626; --err-tint: #fef2f2;
 }
 html, body, [class*="css"], .stApp {font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
-#MainMenu, footer, header {visibility: hidden;}
+#MainMenu, footer {visibility: hidden;}
+/* Giữ header (chứa chỉ báo "Đang chạy…" khi bấm) nhưng trong suốt; ẩn nút Deploy/menu */
+header[data-testid="stHeader"] {background: transparent; height: 2.4rem;}
+div[data-testid="stToolbar"] {visibility: hidden;}
+div[data-testid="stStatusWidget"] {visibility: visible; background: #fff; border: 1px solid var(--line);
+  border-radius: 999px; padding: 2px 10px; box-shadow: 0 2px 8px rgba(15,23,42,.12);}
+div[data-testid="stDecoration"] {background: linear-gradient(90deg, #1e40af, #60a5fa); height: 3px;}
 .block-container {padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1480px;}
 .stApp {background: var(--bg-2);}
 h1 {font-weight: 700; letter-spacing:-.3px; font-size: 1.4rem; color: var(--ink); margin: .2rem 0 .4rem;}
@@ -120,6 +126,35 @@ section[data-testid="stSidebar"] .stMarkdown {color: var(--ink-2);}
 .status-strip .st-item b {color: var(--ink); font-weight: 700;}
 .status-strip .st-item.zero b {color: var(--ink-3); font-weight: 500;}
 .status-strip .st-sep {color: var(--line); font-size: 1rem;}
+
+/* ===== PHẢN HỒI CHUỘT / BÀN PHÍM ===== */
+.stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s, transform .06s, box-shadow .12s;}
+.stButton>button:active, .stDownloadButton>button:active, .stFormSubmitButton>button:active {
+  transform: translateY(1px) scale(.985); box-shadow: none;}
+.stButton>button:disabled, .stDownloadButton>button:disabled, .stFormSubmitButton>button:disabled {
+  opacity: .5; cursor: not-allowed; transform: none;}
+.stDownloadButton>button {border-radius: 8px; border: 1px solid var(--line); background: var(--bg); font-weight: 500;}
+.stDownloadButton>button:hover {border-color: var(--ok); color: var(--ok); background: var(--ok-tint);}
+button:focus-visible, [role="tab"]:focus-visible, [role="radio"]:focus-visible, input:focus-visible,
+summary:focus-visible {outline: 2px solid var(--brand-2) !important; outline-offset: 2px;}
+button[data-baseweb="tab"] {cursor: pointer; transition: background .12s, color .12s;}
+button[data-baseweb="tab"]:hover {color: var(--brand); background: var(--line-2);}
+div[data-testid="stSegmentedControl"] button {cursor: pointer; transition: background .12s, color .12s;}
+div[data-testid="stSegmentedControl"] button:hover:not([aria-pressed="true"]) {background: var(--brand-tint);
+  color: var(--brand); border-color: var(--brand-2);}
+div[data-testid="stExpander"] summary {cursor: pointer; border-radius: 10px; transition: background .12s;}
+div[data-testid="stExpander"] summary:hover {background: var(--line-2);}
+label[data-baseweb="checkbox"], label[data-baseweb="radio"] {cursor: pointer;}
+label[data-baseweb="checkbox"]:hover span, label[data-baseweb="radio"]:hover div:first-child {
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);}
+section[data-testid="stFileUploaderDropzone"] {border: 1.5px dashed #94a3b8; background: var(--bg);
+  border-radius: 10px; transition: border-color .12s, background .12s; cursor: pointer;}
+section[data-testid="stFileUploaderDropzone"]:hover {border-color: var(--brand-2); background: var(--brand-tint);}
+div[data-testid="stTextInput"] input:focus, div[data-testid="stTextArea"] textarea:focus {
+  border-color: var(--brand-2) !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15);}
+/* Khi đang xử lý, phần đang chờ mờ nhẹ -> người dùng biết app đang chạy */
+.stale-element, [data-stale="true"] {opacity: .55; transition: opacity .2s;}
 
 /* Legacy classes giữ cho tương thích */
 .buoc {background: var(--brand-tint); border-left: 3px solid var(--brand); padding: 10px 14px;
@@ -642,6 +677,48 @@ def ds() -> dict:
     return ss.ds
 
 
+def kc() -> dict:
+    """Kiểm chứng SKU <-> DATA SP (chỉ đọc). Tính lại khi map lại hoặc sửa/đơn vị thay đổi."""
+    _, _, qd, _ = qt()
+    khoa = (ss.get("ver", 0), ss.get("ver_map", 0), id(ss.data_sp), id(ss.bang), id(ss.map_tskt), id(ss.map_filter),
+            len(qd or {}))
+    if ss.get("kc_ver") != khoa or "kc_kq" not in ss:
+        ss.kc_kq = C.kiem_chung_sku(ss.bang, ss.data_sp, ss["import"], ss.map_tskt, ss.map_filter, ss.opt, qd,
+                                    ss.meta.get("goc_cms") or {},
+                                    lambda c_, s_, m_, v_: C.bien_doi_o(c_, s_, m_, v_, ss.sua, ss.dv, ss.rong)[0])
+        ss.kc_ver = khoa
+    return ss.kc_kq
+
+
+def tab_kiem_chung() -> None:
+    d = kc()
+    L, t = d["loi"], d["tk"]
+    nghiem = int((L["Mức"] == "CAO").sum()) if len(L) else 0
+    c = st.columns(4)
+    c[0].metric("SKU đã kiểm", f"{t.get('sku', 0):,}")
+    c[1].metric("Ô có giá trị", f"{t.get('o', 0):,}")
+    c[2].metric("Giá trị truy đúng nguồn", f"{t.get('khop', 0):,}")
+    c[3].metric("Lỗi nghiêm trọng", f"{nghiem:,}")
+    st.caption("Đi ngược từ **từng ô kết quả** về **DATA SP của chính SKU đó**, theo đúng mapping PROPERTYID như lúc map: "
+               "giá trị TSKT phải có trong PROPVALUE của SKU, mã FILTER phải suy ra được từ CMS của SKU. "
+               "Chỉ kiểm, **không sửa** dữ liệu.")
+    if not len(L):
+        st.success(f"✔ 100% khớp — {t.get('o', 0):,} ô của {t.get('sku', 0):,} SKU đều lấy đúng dữ liệu từ đúng SKU "
+                   "trong DATA SP. Không có ký tự ẩn.")
+        return
+    if nghiem:
+        st.error(f"⚠️ {nghiem:,} lỗi nghiêm trọng (lệch SKU / FILTER không có nguồn / lệch IMPORT / lệch ngành). "
+                 "Không xuất file khi chưa xử lý.")
+    loai = st.multiselect("Loại", sorted(L["Loại"].unique()), key="kc_loai",
+                          default=[x for x in L["Loại"].unique() if C.KC_MUC.get(x) in ("CAO", "TB")])
+    v = L[L["Loại"].isin(loai)] if loai else L
+    v = v.assign(Mức=v["Mức"].map(MUC_ICON).fillna(v["Mức"]))
+    st.dataframe(v.head(3000), hide_index=True, height=min(480, 60 + 35 * min(len(v), 12)),
+                 column_config={"Nguồn / ghi chú": st.column_config.TextColumn(width="large")})
+    st.download_button("📊 Tải báo cáo kiểm chứng (.xlsx)", C.xlsx_nhieu_sheet({"KIỂM CHỨNG": L}),
+                       file_name=f"KIEM_CHUNG_SKU_{C.bay_gio()[:10]}.xlsx", key="kc_dl")
+
+
 def dht() -> dict:
     """Độ hoàn thiện + vi phạm quy tắc kiểm tra (tính lại khi sửa / đổi quy tắc)."""
     khoa = (ss.ver, json_to_bytes(ss.get("quy_tac_kt", {})))
@@ -795,13 +872,31 @@ def trang_tong_quan() -> None:
             tab_qc(kq())
     with st.expander("③ Bước 3 — Xuất file import (+ file xin data CMS)", expanded=xong2):
         if xong2:
-            xuat_gon("ln")
+            _cn = _chan_nhanh()
+            xuat_gon("ln", None, _cn, can_xn=bool(_cn))
     if ss.lich_su:
         st.markdown("#### Lần xuất gần đây")
         st.dataframe(pd.DataFrame(ss.lich_su[-10:][::-1]), hide_index=True)
 
 
-def xuat_gon(key: str, chon: list | None = None, canh: list | None = None) -> None:
+def _chan_nhanh() -> list:
+    """Lỗi chặn cho nút Xuất nhanh: chỉ lỗi lệch SKU / không nguồn (kiểm chứng) và thiếu khoá import."""
+    try:
+        kcl = kc()["loi"]
+        n = int((kcl["Mức"] == "CAO").sum()) if len(kcl) else 0
+        s_ = kq()["stat"]
+    except Exception:  # noqa: BLE001
+        return []
+    x = [(n, "ô LỆCH SKU / không có nguồn (tab ✅ Kiểm chứng)"), (s_.get("thieu_model", 0), "SKU thiếu model_code"),
+         (s_.get("thieu_cate", 0), "SKU thiếu category_code"), (s_.get("filter_chu", 0), "ô FILTER sai mã")]
+    out = [f"• {a:,} {b}" for a, b in x if a]
+    if out:
+        st.markdown("<div class='canh'><b>⛔ LỖI CẦN XỬ LÝ:</b><br>" + "<br>".join(out) + "</div>",
+                    unsafe_allow_html=True)
+    return out
+
+
+def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_xn: bool | None = None) -> None:
     """Khối xuất dùng chung (trang Làm nhanh + trang Xuất)."""
     if chon is None:
         chon = [c for c in ss.bang if ss.get("chon_nganh", {}).get(c, True)]
@@ -815,8 +910,9 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None) -> No
     with c[2]:
         nut_xin_data(f"{key}_xd")
     xn = True
-    if canh:
-        xn = st.checkbox("Tôi đã đọc cảnh báo, xuất file", value=False, key=f"{key}_xn")
+    # Chỉ bắt tick khi có lỗi CHẶN (can_xn); lưu ý thường không cần tick -> bớt 1 lượt bấm.
+    if (can_xn if can_xn is not None else bool(canh)):
+        xn = st.checkbox("Tôi đã xem lỗi ở trên và vẫn xuất file", value=False, key=f"{key}_xn")
     if st.button("📤 Tạo file import", type="primary", disabled=not xn or not chon, key=f"{key}_tao"):
         with st.spinner("Đang tạo file…"):
             x = C.xuat_file_import(ss.bang, ss["import"], ss.sua, ss.dv, ss.rong, bo_cot_sku=not giu_sku,
@@ -1773,35 +1869,38 @@ def trang_map() -> None:
                  f"{len([1 for kk, v in ss.dv.items() if v and len(kk) == 3])} cột biến đổi hàng loạt · "
                  f"{len([v for v in ss.rong.values() if v[0] != C.HD_GIU])} quy tắc Không/Đang cập nhật. "
                  "Mọi chỉnh sửa tự lưu, áp khi xuất file.")
-    tabs = st.tabs(["🛡️ QC tổng hợp", "⚠️ Cảnh báo", "📈 Độ hoàn thiện & quy tắc", "🧾 Đối soát CMS → kết quả",
-                    "🤖 Gợi ý thông minh & AI", "≠ Khác spec PIM (sửa)", "🔎 Theo SKU + FILTER",
-                    "📏 Đơn vị & biến đổi hàng loạt", "🚫 Không / Đang cập nhật", "📐 Gộp / tách kích thước",
-                    "🧩 Thuộc tính chưa map", "📜 Log map"])
-    with tabs[0]:
+    kcl = kc()["loi"]
+    kc_n = int(kcl["Mức"].isin(["CAO", "TB"]).sum()) if len(kcl) else 0
+    (t_qc, t_kc, t_cb, t_ht, t_ds, t_ai, t_khac, t_sku, t_dv, t_rong, t_kt, t_cm, t_log) = st.tabs([
+        "🛡️ QC tổng hợp", f"✅ Kiểm chứng SKU ↔ DATA SP{' (' + str(kc_n) + ')' if kc_n else ' ✔'}", "⚠️ Cảnh báo",
+        "📈 Độ hoàn thiện & quy tắc", "🧾 Đối soát CMS → kết quả", "🤖 Gợi ý thông minh & AI",
+        "≠ Khác spec PIM (sửa)", "🔎 Theo SKU + FILTER", "📏 Đơn vị & biến đổi hàng loạt", "🚫 Không / Đang cập nhật",
+        "📐 Gộp / tách kích thước", "🧩 Thuộc tính chưa map", "📜 Log map"])
+    with t_qc:
         tab_qc(k)
-    tabs = list(tabs[1:])
-    tabs = [tabs[0]] + list(tabs[2:]) + [tabs[1]]
-    with tabs[-1]:
-        tab_hoan_thien()
-    with tabs[0]:
+    with t_kc:
+        tab_kiem_chung()
+    with t_cb:
         tab_canh_bao(k)
-    with tabs[1]:
+    with t_ht:
+        tab_hoan_thien()
+    with t_ds:
         tab_doi_soat()
-    with tabs[2]:
+    with t_ai:
         tab_ai(k)
-    with tabs[3]:
+    with t_khac:
         tab_khac(k)
-    with tabs[4]:
+    with t_sku:
         tab_sku(k)
-    with tabs[5]:
+    with t_dv:
         tab_don_vi(k)
-    with tabs[6]:
+    with t_rong:
         tab_rong(k)
-    with tabs[7]:
+    with t_kt:
         tab_tach_kt()
-    with tabs[8]:
+    with t_cm:
         tab_chua_map()
-    with tabs[9]:
+    with t_log:
         lg = pd.DataFrame(ss.meta.get("log", []), columns=["SKU", "Ngành hàng", "Mã", "Nguyên nhân"])
         st.dataframe(lg, hide_index=True, height=420)
     st.divider()
@@ -1826,7 +1925,16 @@ def qc_tong_hop(k: dict) -> list:
     nf = int(L.loc[(L["_loai"] == "filter") & (L["Mức"] == C.MUC_CAO), "Số SKU"].sum()) if len(L) else 0
     nc = int(L.loc[L["_loai"] == "cot", "Số SKU"].sum()) if len(L) else 0
     rong_chua = sum(1 for x in k["gia_tri_rong"] if ss.rong.get(x["khoa"], [C.HD_GIU])[0] == C.HD_GIU)
+    kcl = kc()["loi"]
+    kc_cao = int((kcl["Mức"] == "CAO").sum()) if len(kcl) else 0
+    kc_tb = int((kcl["Mức"] == "TB").sum()) if len(kcl) else 0
     q = [
+        ("CAO", "Kiểm chứng SKU ↔ DATA SP: giá trị lệch SKU / không có nguồn", kc_cao,
+         "Ô kết quả không truy được về DATA SP của CHÍNH SKU đó", "Xem từng ô bên dưới (tab ✅ Kiểm chứng)", None,
+         "kiem_chung"),
+        ("TB", "Kiểm chứng: không thấy nguồn / ký tự ẩn", kc_tb,
+         "Giá trị không có trong DATA SP của SKU, hoặc ô chứa ký tự ẩn (tự bỏ khi xuất)",
+         "Xem từng ô bên dưới (tab ✅ Kiểm chứng)", None, "kiem_chung"),
         ("CAO", "Thiếu model_code", s.get("thieu_model", 0), "SKU không có Mã model → không import được",
          "Sửa trực tiếp cột Mã model bên dưới", "thieu_model", "thieu_model"),
         ("CAO", "Thiếu category_code", s.get("thieu_cate", 0), "IMPORT chưa có Mã danh mục PIM",
@@ -1964,6 +2072,9 @@ def tab_qc(k: dict) -> None:
 # VÙNG XEM & SỬA RIÊNG TỪNG LỖI (bấm 1 dòng ở bảng QC)
 # ----------------------------------------------------------------------------
 def khu_sua_loi(kind: str, k: dict) -> None:
+    if kind == "kiem_chung":
+        tab_kiem_chung()
+        return
     if kind in ("thieu_model", "thieu_cate"):
         _sua_import_thieu("model_code" if kind == "thieu_model" else "category_code")
     elif kind == "xin_data":
@@ -3138,16 +3249,27 @@ def khu_xuat(k: dict) -> None:
             (int((dht()["vi_pham"]["Mức"] == C.MUC_LOI).sum()), "ô vi phạm quy tắc kiểm tra mức LỖI (tab 📈)"),
             (int((~dht()["sku"]["Đủ bắt buộc"]).sum()) if len(dht()["sku"]) else 0,
              "SKU chưa đủ cột BẮT BUỘC (tab 📈 Độ hoàn thiện)")]
-    canh = [f"• {n:,} {t}" for n, t in canh if n]
-    if canh:
-        st.markdown("<div class='canh'><b>⚠️ CÒN CẢNH BÁO — đọc trước khi import:</b><br>" + "<br>".join(canh) +
+    kcl = kc()["loi"]
+    kc_cao = int((kcl["Mức"] == "CAO").sum()) if len(kcl) else 0
+    # Lỗi CHẶN (cần tick xác nhận mới xuất): dữ liệu sai SKU / thiếu khoá import / FILTER sai mã.
+    chan = [(kc_cao, "ô LỆCH SKU / không có nguồn trong DATA SP (tab ✅ Kiểm chứng)"),
+            (s.get("thieu_model", 0), "SKU thiếu model_code"), (s.get("thieu_cate", 0), "SKU thiếu category_code"),
+            (s.get("filter_chu", 0), "ô FILTER sai mã")]
+    chan = [f"• {n:,} {t}" for n, t in chan if n]
+    canh = [f"• {n:,} {t}" for n, t in canh if n and t not in ("SKU thiếu model_code", "SKU thiếu category_code",
+                                                                  "ô FILTER sai mã")]
+    if chan:
+        st.markdown("<div class='canh'><b>⛔ LỖI CẦN XỬ LÝ trước khi import:</b><br>" + "<br>".join(chan) +
                     "</div>", unsafe_allow_html=True)
-    else:
-        st.success("✔ Không còn cảnh báo.")
+    if canh:
+        with st.expander(f"ℹ️ {len(canh)} lưu ý (không chặn xuất)", expanded=not chan):
+            st.markdown("<br>".join(canh), unsafe_allow_html=True)
+    if not chan and not canh:
+        st.success("✔ Không còn cảnh báo — dữ liệu đã kiểm chứng đúng SKU.")
     st.markdown("##### CHỌN NGÀNH HÀNG xuất (giống sheet CHỌN NGÀNH HÀNG của file mẫu)")
     chon = bang_chon_nganh(f"ed_chon_xuat_{ss.ws}_{ss.get('ver_map', 0)}_{ss.get('ver_nap', 0)}_"
                            f"{hash(tuple(ss.bang)) & 0xffffff}")
-    xuat_gon("xp", chon, canh)
+    xuat_gon("xp", chon, chan + canh, can_xn=bool(chan))
     x = ss.get("xuat")
     if x:
         L = ds()["loi"]
@@ -4044,7 +4166,8 @@ def vung_chay() -> None:
     if bang_trong():
         st.caption("Map xong mới xuất được.")
     else:
-        xuat_gon("ln")
+        _cn = _chan_nhanh()
+        xuat_gon("ln", None, _cn, can_xn=bool(_cn))
         if ss.lich_su:
             with st.expander("Lần xuất gần đây"):
                 st.dataframe(pd.DataFrame(ss.lich_su[-10:][::-1]), hide_index=True)

@@ -3,7 +3,25 @@ maxUploadSize = 500
 maxMessageSize = 500
 
 [theme]
-primaryColor = "#2f6fed"
+base = "light"
+# Màu thương hiệu dùng chung cho MỌI widget (checkbox, radio, toggle, focus, nút chính, link, tab đang chọn)
+primaryColor = "#1e40af"
+backgroundColor = "#f8fafc"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#0f172a"
+borderColor = "#e2e8f0"
+showWidgetBorder = true
+linkColor = "#1e40af"
+baseRadius = "8px"
+buttonRadius = "8px"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+baseFontSize = 15
+dataframeHeaderBackgroundColor = "#f1f5f9"
+dataframeBorderColor = "#e2e8f0"
+greenColor = "#16a34a"
+redColor = "#dc2626"
+orangeColor = "#d97706"
+blueColor = "#1e40af"
 
 [client]
 toolbarMode = "minimal"

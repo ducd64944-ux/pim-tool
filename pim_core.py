@@ -78,16 +78,36 @@ def ep_text(v) -> str:
 _CACHE = 1 << 18
 _CHU_RONG = frozenset(("nan", "NaN", "None", "<NA>"))
 
+# KÝ TỰ ẨN hay gặp khi copy từ web/Word/CMS: không nhìn thấy nhưng làm SKU/giá trị so khớp SAI và lọt vào file import
+# (PIM nhận cả ký tự ẩn -> ô trông giống nhau mà không trùng). Bỏ hẳn; khoảng trắng lạ (NBSP, en-space…) -> ' '.
+# Giữ nguyên \n và \t (giá trị nhiều dòng). \r bị bỏ vì xlsx ghi \r thành "_x000D_" trên PIM.
+_KY_TU_AN = "\u200b\u200c\u200d\u200e\u200f\u2060\u2061\u2062\u2063\u2064\ufeff\u00ad\u180e\u202a\u202b\u202c\u202d\u202e\r"
+_KHOANG_TRANG_LA = "\u00a0\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u202f\u205f\u3000\u2028\u2029"
+_AN_MAP = {ord(c): None for c in _KY_TU_AN}
+_AN_MAP.update({c: None for c in list(range(0x00, 0x09)) + [0x0b, 0x0c] + list(range(0x0e, 0x20)) + [0x7f]})
+_AN_MAP.update({ord(c): " " for c in _KHOANG_TRANG_LA})
+_AN_RE = re.compile("[" + re.escape(_KY_TU_AN) + "\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def bo_ky_tu_an(s: str) -> str:
+    """Bỏ ký tự ẩn / ký tự điều khiển, đổi khoảng trắng lạ thành ' ' (không trim)."""
+    return s.translate(_AN_MAP) if s else s
+
+
+def co_ky_tu_an(s) -> bool:
+    return bool(s) and isinstance(s, str) and (_AN_RE.search(s) is not None
+                                               or any(c in s for c in _KHOANG_TRANG_LA))
+
 
 @lru_cache(maxsize=_CACHE)
 def _ck_str(s: str) -> str:
-    return "" if s in _CHU_RONG else s.replace(_NBSP, " ").strip()
+    return "" if s in _CHU_RONG else s.translate(_AN_MAP).strip()
 
 
 def chuan_hoa_key(v) -> str:
     if type(v) is str:
         return _ck_str(v)
-    return ep_text(v).replace(_NBSP, " ").strip()
+    return ep_text(v).translate(_AN_MAP).strip()
 
 
 @lru_cache(maxsize=_CACHE)
@@ -1615,6 +1635,125 @@ def tinh_kiem_tra(bang: Dict[str, dict], imp: pd.DataFrame, spec: Optional[pd.Da
     }
 
 
+# ============================================================================
+# KIỂM CHỨNG SKU <-> DATA SP (chỉ ĐỌC, không đổi kết quả map)
+# Đi ngược chiều với đối soát: từ ô KẾT QUẢ quay lại DATA SP của CHÍNH SKU đó để chứng minh mỗi giá trị
+# lấy đúng từ đúng SKU. Dùng đúng quy tắc của chay_map (mapping theo PROPERTYID, setdefault, quy đổi FILTER).
+# ============================================================================
+KC_LECH_SKU = "LỆCH SKU"
+KC_KHONG_NGUON = "Không thấy trong DATA SP của SKU"
+KC_THUOC_TINH_KHAC = "Lấy từ thuộc tính khác (map theo tên)"
+KC_SUA_QUY_TAC = "Đã sửa theo quy tắc CMS"
+KC_FILTER_THUA = "FILTER có mã không suy ra được từ CMS"
+KC_LECH_IMPORT = "model/biến thể khác IMPORT"
+KC_LECH_NGANH = "Ngành khác CATEGORYID trong DATA SP"
+KC_KY_TU_AN = "Có ký tự ẩn (sẽ tự bỏ khi xuất)"
+KC_MUC = {KC_LECH_SKU: "CAO", KC_LECH_IMPORT: "CAO", KC_LECH_NGANH: "CAO", KC_FILTER_THUA: "CAO",
+          KC_KHONG_NGUON: "TB", KC_KY_TU_AN: "TB", KC_THUOC_TINH_KHAC: "THAP", KC_SUA_QUY_TAC: "TT"}
+
+
+def kiem_chung_sku(bang: Dict[str, dict], data_sp: pd.DataFrame, imp: pd.DataFrame, map_tskt: pd.DataFrame,
+                   map_filter: pd.DataFrame, opt: dict, quy_doi: Optional[Dict[str, str]] = None,
+                   goc_cms: Optional[Dict[str, str]] = None, gia_tri_xuat=None) -> dict:
+    """-> {"loi": DataFrame(Mức, Loại, NH, SKU, Mã cột, Giá trị, Nguồn/ghi chú), "tk": {...}}.
+    gia_tri_xuat(cate, sku, ma, raw) -> giá trị SẼ XUẤT (để soát ký tự ẩn); None = soát giá trị map."""
+    goc_cms = goc_cms or {}
+    quy_doi = quy_doi or {}
+    cot = ["Mức", "Loại", "NH", "SKU", "Mã cột", "Giá trị", "Nguồn / ghi chú"]
+    tk = Counter()
+    out: List[list] = []
+    if not bang:
+        return {"loi": pd.DataFrame(columns=cot), "tk": dict(tk)}
+    sku_bang = {r["sku"] for b in bang.values() for r in b["rows"]}
+    sp = data_sp[data_sp.PRODUCTCODE.isin(sku_bang)] if data_sp is not None and len(data_sp) else None
+    # mapping y hệt chay_map (setdefault: dòng đầu thắng)
+    tm: Dict[str, Dict[str, str]] = defaultdict(dict)
+    for cate, pid, ma in map_tskt[["cate", "prop_id", "ma"]].itertuples(index=False):
+        tm[cate].setdefault(pid, ma)
+    fm: Dict[str, Dict[str, str]] = defaultdict(dict)
+    for cate, pid, ma in map_filter[["cate", "prop_id", "ma"]].itertuples(index=False):
+        fm[cate].setdefault(pid, ma)
+    gia_tri_sku: Dict[str, List[Tuple[str, str]]] = defaultdict(list)   # sku -> [(pid, val)]
+    cate_sp: Dict[str, str] = {}
+    sku_cua_gt: Dict[Tuple[str, str], set] = defaultdict(set)          # (cate, val) -> {sku}
+    if sp is not None:
+        for sku, pid, val, cid in sp[["PRODUCTCODE", "PROPERTYID", "PROPVALUE", "CATEGORYID"]].itertuples(index=False):
+            if cid and sku not in cate_sp:
+                cate_sp[sku] = cid
+            if pid and val:
+                gia_tri_sku[sku].append((pid, val))
+    nl = {r.sku: r for r in imp.drop_duplicates("sku").itertuples(index=False)} if imp is not None and len(imp) else {}
+    for cate, b in bang.items():
+        tmc, fmc = tm.get(cate, {}), fm.get(cate, {})
+        for r in b["rows"]:
+            for _pid, val in gia_tri_sku.get(r["sku"], ()):
+                sku_cua_gt[(cate, val)].add(r["sku"])
+        for r in b["rows"]:
+            sku = r["sku"]
+            tk["sku"] += 1
+            n0 = nl.get(sku)
+            if n0 is not None and (chuan_hoa_key(n0.model_code) != chuan_hoa_key(r["model"])
+                                   or chuan_hoa_key(n0.variant_code) != chuan_hoa_key(r["variant"])):
+                out.append([KC_MUC[KC_LECH_IMPORT], KC_LECH_IMPORT, cate, sku, "model_code / variant_code",
+                            f"{r['model']} / {r['variant']}", f"IMPORT: {n0.model_code} / {n0.variant_code}"])
+            cid = cate_sp.get(sku)
+            if cid and cid != cate:
+                out.append([KC_MUC[KC_LECH_NGANH], KC_LECH_NGANH, cate, sku, "", "", f"DATA SP CATEGORYID = {cid}"])
+            nguon = gia_tri_sku.get(sku, [])
+            tat_ca_gt = {v for _, v in nguon}
+            for ma in cot_tt(b):
+                v = r["vals"].get(ma, "")
+                if not v:
+                    continue
+                tk["o"] += 1
+                if gia_tri_xuat is not None:
+                    vx = gia_tri_xuat(cate, sku, ma, v)
+                    if co_ky_tu_an(vx):
+                        tk[KC_KY_TU_AN] += 1
+                        out.append([KC_MUC[KC_KY_TU_AN], KC_KY_TU_AN, cate, sku, ma, repr(vx)[:120], "Ký tự ẩn bị loại khi ghi file"])
+                g = goc_cms.get(f"{sku}\t{ma}")
+                if g is not None:
+                    tk[KC_SUA_QUY_TAC] += 1
+                    out.append([KC_MUC[KC_SUA_QUY_TAC], KC_SUA_QUY_TAC, cate, sku, ma, v, f"CMS gốc: {g}"])
+                    continue
+                if la_cot_filter(ma):
+                    du_kien = set()
+                    for pid, val in nguon:
+                        if fmc.get(pid) == ma:
+                            oc = quy_doi.get(f"{ma}\t{khoa_quy_doi(val)}") or opt["option_map"].get((ma, khoa_option(val)))
+                            if oc:
+                                du_kien.add(oc)
+                    thua = [x for x in (t.strip() for t in v.split(",")) if x and x not in du_kien]
+                    if thua:
+                        tk[KC_FILTER_THUA] += 1
+                        out.append([KC_MUC[KC_FILTER_THUA], KC_FILTER_THUA, cate, sku, ma, v,
+                                    f"Mã không có nguồn: {', '.join(thua)} · suy ra từ CMS: {', '.join(sorted(du_kien)) or '(không)'}"])
+                    else:
+                        tk["khop"] += 1
+                    continue
+                dung_cot = {val for pid, val in nguon if tmc.get(pid) == ma}
+                for phan in [x for x in v.split(SEP_TSKT) if x]:
+                    if phan in dung_cot:
+                        tk["khop"] += 1
+                    elif phan in tat_ca_gt:
+                        tk[KC_THUOC_TINH_KHAC] += 1
+                        out.append([KC_MUC[KC_THUOC_TINH_KHAC], KC_THUOC_TINH_KHAC, cate, sku, ma, phan,
+                                    "Giá trị có trong DATA SP của SKU nhưng ở thuộc tính khác"])
+                    else:
+                        khac = sorted(sku_cua_gt.get((cate, phan), set()) - {sku})
+                        if khac:
+                            tk[KC_LECH_SKU] += 1
+                            out.append([KC_MUC[KC_LECH_SKU], KC_LECH_SKU, cate, sku, ma, phan,
+                                        "Giá trị chỉ có ở SKU khác: " + ", ".join(khac[:5])])
+                        else:
+                            tk[KC_KHONG_NGUON] += 1
+                            out.append([KC_MUC[KC_KHONG_NGUON], KC_KHONG_NGUON, cate, sku, ma, phan,
+                                        "Không có trong DATA SP của SKU này"])
+    thu_tu = {"CAO": 0, "TB": 1, "THAP": 2, "TT": 3}
+    out.sort(key=lambda x: (thu_tu.get(x[0], 9), x[1], x[2], x[3]))
+    return {"loi": pd.DataFrame(out, columns=cot), "tk": dict(tk)}
+
+
 def giai_nghia_filter(code: str, gia_tri: str, opt: dict) -> str:
     if not la_cot_filter(code) or not gia_tri:
         return ""
@@ -1629,6 +1768,14 @@ def giai_nghia_filter(code: str, gia_tri: str, opt: dict) -> str:
 # ============================================================================
 # §7 XUẤT FILE IMPORT
 # ============================================================================
+def _o_sach(v) -> str:
+    """Chốt chặn cuối trước khi ghi ô vào file import: bỏ ký tự ẩn (kể cả trong ô SỬA TAY / dán từ web).
+    Ô không có ký tự ẩn giữ NGUYÊN y hệt (không trim) -> file import không đổi so với desktop."""
+    t = str(v)
+    t2 = bo_ky_tu_an(t)
+    return t2.strip() if t2 != t else t
+
+
 def _xlsx_text(rows: List[list]) -> bytes:
     """File import: sheet "Export Product Template", MỌI ô dạng Text "@" (cả cột), 2 dòng tiêu đề in đậm, cố định A3.
     Dùng xlsxwriter (nhanh ~4 lần, ít RAM) nếu có; không thì openpyxl — nội dung ô y hệt nhau."""
@@ -1650,7 +1797,9 @@ def _xlsx_text(rows: List[list]) -> bytes:
             f = f_dam if i <= 1 else f_txt
             for j, v in enumerate(r):
                 if v not in (None, ""):
-                    ws.write_string(i, j, str(v), f)
+                    v = _o_sach(v)
+                    if v:
+                        ws.write_string(i, j, v, f)
         ws.freeze_panes(2, 0)
         wb.close()
         return buf.getvalue()
@@ -1662,8 +1811,8 @@ def _xlsx_text(rows: List[list]) -> bytes:
     bold = Font(bold=True)
     for i, r in enumerate(rows, start=1):
         for j, v in enumerate(r, start=1):
-            if v not in (None, ""):
-                cell = ws.cell(row=i, column=j, value=str(v))
+            if v not in (None, "") and _o_sach(v):
+                cell = ws.cell(row=i, column=j, value=_o_sach(v))
                 cell.number_format = "@"
                 if i <= 2:
                     cell.font = bold
