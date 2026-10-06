@@ -95,6 +95,15 @@ Từ giờ mọi tài khoản dùng chung mapping, cấu hình và DATA PIM này
 
 ---
 
+## Thành viên tự tạo tài khoản
+
+- Ở trang đăng nhập có tab **🆕 Tạo tài khoản**. Thành viên tự điền tên đăng nhập (chữ thường, không dấu), tên hiển thị, mật khẩu.
+- **Không có mã mời** → tài khoản ở trạng thái *chờ duyệt*. Admin vào **👥 Quản trị → Tài khoản thành viên tự đăng ký** bấm **✅ Duyệt**.
+- **Có mã mời** → dùng được ngay. Đặt mã trong Secrets: `MA_MOI = "ma-cua-ban"`, rồi gửi mã cho thành viên.
+- Admin có nút **🔑 Đặt MK** (đặt lại thành 123456) và **🗑 Xoá**.
+- Tài khoản tự đăng ký lưu ở `shared/tai_khoan.json` trong repo dữ liệu, mật khẩu băm PBKDF2 (không lưu chữ thật). Tài khoản **admin** vẫn khai trong Secrets (`[users.xxx]`).
+- Đăng nhập bằng **tên đăng nhập** (vd `ducd`), không phân biệt hoa/thường; nếu gõ nhầm tên hiển thị (vd `Duccontent`) mà không trùng ai thì vẫn nhận.
+
 ## Dùng đồng thời nhiều máy, nhiều người — tool tự lo
 
 - **Mỗi tài khoản 1 workspace riêng**, nên người này không đụng dữ liệu lô của người kia.

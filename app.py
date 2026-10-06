@@ -8,6 +8,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import random
+import secrets
 import re
 import time
 from collections import Counter
@@ -23,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.5 · 2026-10-06 (nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.6 · 2026-10-06 (tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -49,7 +51,11 @@ def sec(key: str, default=None):
     return os.environ.get(key, default)
 
 
-def ds_tai_khoan() -> dict:
+F_TK = "shared/tai_khoan.json"  # tài khoản thành viên tự tạo (lưu trên kho dữ liệu)
+_TEN_DN_RE = re.compile(r"^[a-z0-9._-]{3,30}$")
+
+
+def tk_secrets() -> dict:
     """[users.<tên>] password = "..." (hoặc "sha256:<hex>"), ten = "...", admin = true/false."""
     try:
         u = st.secrets.get("users")  # type: ignore[union-attr]
@@ -62,11 +68,97 @@ def ds_tai_khoan() -> dict:
     return {}
 
 
+@st.cache_data(ttl=15, show_spinner=False)
+def tk_kho() -> dict:
+    try:
+        return bytes_to_json(tao_store().doc(F_TK), {}) or {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def ds_tai_khoan(ca_cho_duyet: bool = False) -> dict:
+    """Secrets (admin cài sẵn) + tài khoản thành viên tự tạo đã được duyệt. Secrets thắng nếu trùng tên."""
+    out = dict(tk_kho())
+    if not ca_cho_duyet:
+        out = {k: v for k, v in out.items() if v.get("trang_thai", "active") == "active"}
+    out.update(tk_secrets())
+    return out
+
+
+def tim_tai_khoan(nhap: str, tk: dict) -> str | None:
+    """Khớp tên đăng nhập không phân biệt hoa/thường; chấp nhận cả 'Tên hiển thị' nếu không trùng ai."""
+    n = nhap.strip().lower()
+    if not n:
+        return None
+    for k in tk:
+        if k.lower() == n:
+            return k
+    cung_ten = [k for k, v in tk.items() if str(v.get("ten", "")).strip().lower() == n]
+    return cung_ten[0] if len(cung_ten) == 1 else None
+
+
+def bam_mat_khau(mk: str) -> str:
+    salt = secrets.token_hex(8)
+    return f"pbkdf2${salt}${hashlib.pbkdf2_hmac('sha256', mk.encode(), salt.encode(), 120_000).hex()}"
+
+
 def dung_mat_khau(luu: str, nhap: str) -> bool:
     luu = str(luu or "")
     if luu.startswith("sha256:"):
         return hmac.compare_digest(luu[7:].lower(), hashlib.sha256(nhap.encode()).hexdigest())
+    if luu.startswith("pbkdf2$"):
+        try:
+            _, salt, h = luu.split("$")
+            return hmac.compare_digest(h, hashlib.pbkdf2_hmac("sha256", nhap.encode(), salt.encode(), 120_000).hex())
+        except Exception:  # noqa: BLE001
+            return False
     return bool(luu) and hmac.compare_digest(luu, nhap)
+
+
+def sua_tk_kho(ham, thong_diep: str) -> tuple[bool, str]:
+    """Đọc-sửa-ghi shared/tai_khoan.json có kiểm tra phiên bản (nhiều người đăng ký cùng lúc không mất của nhau)."""
+    S = tao_store()
+    for _ in range(6):
+        data, ver = S.doc2(F_TK)
+        d = bytes_to_json(data, {}) or {}
+        loi = ham(d)
+        if loi:
+            return False, loi
+        ok, msg, _, xd = S.luu({F_TK: json_to_bytes(d)}, thong_diep, {F_TK: ver})
+        if ok:
+            tk_kho.clear()
+            return True, ""
+        if not xd:
+            return False, msg
+        time.sleep(0.4 + random.random() * 0.6)
+    return False, "Kho đang bận, thử lại sau vài giây."
+
+
+def dang_ky(u: str, ten: str, mk: str, ma: str) -> tuple[bool, str]:
+    u = u.strip().lower()
+    if not _TEN_DN_RE.match(u):
+        return False, "Tên đăng nhập 3–30 ký tự: chữ thường không dấu, số, . _ -  (vd: an.nguyen)."
+    if len(mk) < 6:
+        return False, "Mật khẩu tối thiểu 6 ký tự."
+    if u in tk_secrets():
+        return False, "Tên đăng nhập này đã có người dùng."
+    ma_moi = str(sec("MA_MOI", "") or "")
+    if ma and ma_moi and not hmac.compare_digest(ma.strip(), ma_moi):
+        return False, "Mã mời không đúng."
+    dung_ma = bool(ma_moi) and bool(ma)
+    ban_ghi = {"password": bam_mat_khau(mk), "ten": ten.strip() or u, "admin": False,
+               "trang_thai": "active" if dung_ma else "cho_duyet", "tao_luc": C.bay_gio()}
+
+    def them(d):
+        if u in d:
+            return "Tên đăng nhập này đã có người dùng."
+        d[u] = ban_ghi
+        return ""
+    ok, loi = sua_tk_kho(them, f"[{u}] Đăng ký tài khoản")
+    if not ok:
+        return False, loi
+    return True, ("Tạo xong — đăng nhập được ngay." if dung_ma else
+                  "Đã gửi đăng ký — chờ admin duyệt rồi đăng nhập.")
 
 
 @st.cache_resource
@@ -90,22 +182,47 @@ def dang_nhap() -> None:
         st.error("Chưa cấu hình tài khoản. Vào Streamlit Cloud → app → Settings → Secrets, thêm:")
         st.code('[users.ducd]\npassword = "mat-khau"\nten = "Đức"\nadmin = true', language="toml")
         st.stop()
-    with st.form("dang_nhap"):
-        u = st.text_input("Tài khoản").strip()
-        p = st.text_input("Mật khẩu", type="password")
-        ok = st.form_submit_button("Đăng nhập", type="primary")
-    if ok:
-        if ss.get("sai_mk", 0) >= 8:
-            st.error("Sai quá nhiều lần — tải lại trang sau ít phút.")
-        elif u in tk and dung_mat_khau(tk[u].get("password"), p):
-            ss.user, ss.ten = u, tk[u].get("ten", u)
-            ss.admin = bool(tk[u].get("admin", False))
-            ss.ws = u
-            ss.sai_mk = 0
-            st.rerun()
-        else:
-            ss.sai_mk = ss.get("sai_mk", 0) + 1
-            st.error("Sai tài khoản hoặc mật khẩu.")
+    t_dn, t_dk = st.tabs(["🔑 Đăng nhập", "🆕 Tạo tài khoản"])
+    with t_dn:
+        with st.form("dang_nhap"):
+            u = st.text_input("Tài khoản (tên đăng nhập)").strip()
+            p = st.text_input("Mật khẩu", type="password")
+            ok = st.form_submit_button("Đăng nhập", type="primary")
+        if ok:
+            k = tim_tai_khoan(u, tk)
+            if ss.get("sai_mk", 0) >= 8:
+                st.error("Sai quá nhiều lần — tải lại trang sau ít phút.")
+            elif k and dung_mat_khau(tk[k].get("password"), p):
+                ss.user, ss.ten = k, tk[k].get("ten", k)
+                ss.admin = bool(tk[k].get("admin", False))
+                ss.ws = k
+                ss.sai_mk = 0
+                st.rerun()
+            else:
+                ss.sai_mk = ss.get("sai_mk", 0) + 1
+                cho = tim_tai_khoan(u, ds_tai_khoan(True))
+                if cho and cho not in tk and cho not in tk_secrets():
+                    st.warning("Tài khoản này đang chờ admin duyệt.")
+                else:
+                    st.error("Sai tài khoản hoặc mật khẩu. Lưu ý: dùng TÊN ĐĂNG NHẬP (vd `ducd`), không phải tên hiển thị.")
+    with t_dk:
+        st.caption("Thành viên tự tạo tài khoản. Có **mã mời** từ admin thì dùng được ngay; không có thì chờ admin duyệt.")
+        with st.form("dang_ky"):
+            u2 = st.text_input("Tên đăng nhập (chữ thường, không dấu)")
+            t2 = st.text_input("Tên hiển thị")
+            m2 = st.text_input("Mật khẩu (≥ 6 ký tự)", type="password")
+            m3 = st.text_input("Nhập lại mật khẩu", type="password")
+            ma = st.text_input("Mã mời (nếu có)")
+            ok2 = st.form_submit_button("Tạo tài khoản")
+        if ok2:
+            if m2 != m3:
+                st.error("Hai mật khẩu không giống nhau.")
+            else:
+                try:
+                    done, msg = dang_ky(u2, t2, m2, ma)
+                except Exception as e:  # noqa: BLE001
+                    done, msg = False, f"Lỗi lưu: {e}"
+                (st.success if done else st.error)(msg)
     st.stop()
 
 
@@ -2785,8 +2902,35 @@ def trang_quan_tri() -> None:
             st.write(ai.ds_model())
         except AIH.LoiAI as e:
             st.error(str(e))
-    st.markdown("#### Thêm tài khoản")
-    st.caption("Thêm vào Streamlit Secrets (mật khẩu có thể lưu dạng băm sha256 để không lộ chữ thật):")
+    st.markdown("#### 🆕 Tài khoản thành viên tự đăng ký")
+    kho = tk_kho()
+    if not kho:
+        st.caption("Chưa có ai đăng ký. Thành viên tự vào tab 🆕 Tạo tài khoản ở trang đăng nhập. "
+                   "Đặt `MA_MOI = \"...\"` trong Secrets để ai nhập đúng mã được dùng ngay, không cần duyệt.")
+    else:
+        for u, v in sorted(kho.items()):
+            c = st.columns([3, 2, 1, 1, 1])
+            c[0].write(f"**{u}** — {v.get('ten', '')}")
+            c[1].caption(f"{v.get('trang_thai', 'active')} · {v.get('tao_luc', '')}")
+            if v.get("trang_thai") == "cho_duyet" and c[2].button("✅ Duyệt", key=f"dk_ok_{u}"):
+                def _d(d, u=u):
+                    d[u]["trang_thai"] = "active"
+                    return ""
+                st.toast(sua_tk_kho(_d, f"[{ss.user}] Duyệt {u}")[1] or "Đã duyệt")
+                st.rerun()
+            if c[3].button("🔑 Đặt MK", key=f"dk_mk_{u}", help="Đặt lại mật khẩu thành 123456 — nhắn thành viên đổi lại"):
+                def _m(d, u=u):
+                    d[u]["password"] = bam_mat_khau("123456")
+                    return ""
+                st.toast(sua_tk_kho(_m, f"[{ss.user}] Đặt lại MK {u}")[1] or "Mật khẩu = 123456")
+            if c[4].button("🗑 Xoá", key=f"dk_xoa_{u}"):
+                def _x(d, u=u):
+                    d.pop(u, None)
+                    return ""
+                st.toast(sua_tk_kho(_x, f"[{ss.user}] Xoá {u}")[1] or "Đã xoá")
+                st.rerun()
+    st.markdown("#### Tài khoản admin (Secrets)")
+    st.caption("Admin và tài khoản cài sẵn thêm vào Streamlit Secrets (mật khẩu có thể lưu dạng băm sha256 để không lộ chữ thật):")
     mk = st.text_input("Tạo chuỗi băm cho mật khẩu", type="password")
     if mk:
         st.code(f'[users.ten_dang_nhap]\npassword = "sha256:{hashlib.sha256(mk.encode()).hexdigest()}"\n'
