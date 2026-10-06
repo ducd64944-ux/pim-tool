@@ -1,0 +1,817 @@
+{
+ "13238": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Sâu",
+    "Khối lượng"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Sâu": [
+     "Sâu"
+    ],
+    "Khối lượng": [
+     "Khối lượng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "9239": [
+  {
+   "container": "Kích thước, khối lượng",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Sâu"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Sâu": [
+     "Sâu"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "13758": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Sâu",
+    "Nặng"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Sâu": [
+     "Sâu"
+    ],
+    "Nặng": [
+     "Nặng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "3729": [
+  {
+   "container": "Kích thước",
+   "sub_labels": [
+    "Dài",
+    "Rộng",
+    "Cao"
+   ],
+   "aliases": {
+    "Dài": [
+     "Dài"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Cao": [
+     "Cao"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "6790": [
+  {
+   "container": "Chất liệu",
+   "sub_labels": [
+    "Chất liệu",
+    "Chất liệu"
+   ],
+   "aliases": {
+    "Chất liệu": [
+     "Chất liệu"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  },
+  {
+   "container": "Kích thước",
+   "sub_labels": [
+    "Kích thước",
+    "Kích thước (tên)"
+   ],
+   "aliases": {
+    "Kích thước": [
+     "Kích thước"
+    ],
+    "Kích thước (tên)": [
+     "Kích thước",
+     "Kích thước (tên)"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  },
+  {
+   "container": "Chất liệu",
+   "sub_labels": [
+    "Chất liệu",
+    "Chất liệu"
+   ],
+   "aliases": {
+    "Chất liệu": [
+     "Chất liệu"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  },
+  {
+   "container": "Chất liệu",
+   "sub_labels": [
+    "Chất liệu",
+    "Chất liệu"
+   ],
+   "aliases": {
+    "Chất liệu": [
+     "Chất liệu"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  },
+  {
+   "container": "Kích thước",
+   "sub_labels": [
+    "Kích thước",
+    "Kích thước (tên)"
+   ],
+   "aliases": {
+    "Kích thước": [
+     "Kích thước"
+    ],
+    "Kích thước (tên)": [
+     "Kích thước",
+     "Kích thước (tên)"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  },
+  {
+   "container": "Kích thước (tên)",
+   "sub_labels": [
+    "Kích thước",
+    "Kích thước"
+   ],
+   "aliases": {
+    "Kích thước": [
+     "Kích thước"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  }
+ ],
+ "10871": [
+  {
+   "container": "Kích thước",
+   "sub_labels": [
+    "Dài",
+    "Rộng",
+    "Cao"
+   ],
+   "aliases": {
+    "Dài": [
+     "Dài"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Cao": [
+     "Cao"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "7458": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Rộng",
+    "Khối lượng"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Khối lượng": [
+     "Khối lượng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "9941": [
+  {
+   "container": "Kích thước, khối lượng",
+   "sub_labels": [
+    "Rộng",
+    "Cao",
+    "Dài",
+    "Khối lượng"
+   ],
+   "aliases": {
+    "Rộng": [
+     "Rộng"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Dài": [
+     "Dài"
+    ],
+    "Khối lượng": [
+     "Khối lượng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "6858": [
+  {
+   "container": "Kích thước, khối lượng",
+   "sub_labels": [
+    "Dài",
+    "Rộng",
+    "Dày",
+    "Nặng"
+   ],
+   "aliases": {
+    "Dài": [
+     "Dài"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Dày": [
+     "Dày"
+    ],
+    "Nặng": [
+     "Nặng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "8980": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Dài",
+    "Rộng",
+    "Dày",
+    "Nặng"
+   ],
+   "aliases": {
+    "Dài": [
+     "Dài"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Dày": [
+     "Dày"
+    ],
+    "Nặng": [
+     "Nặng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  },
+  {
+   "container": "Kích thước",
+   "sub_labels": [
+    "Dài",
+    "Rộng",
+    "Dày",
+    "Nặng"
+   ],
+   "aliases": {
+    "Dài": [
+     "Dài"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Dày": [
+     "Dày"
+    ],
+    "Nặng": [
+     "Nặng"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  }
+ ],
+ "11279": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Dài",
+    "Rộng",
+    "Cao",
+    "Nặng"
+   ],
+   "aliases": {
+    "Dài": [
+     "Dài"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Nặng": [
+     "Nặng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "7859": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Cao",
+    "Ngang",
+    "Sâu",
+    "Khối lượng"
+   ],
+   "aliases": {
+    "Cao": [
+     "Cao"
+    ],
+    "Ngang": [
+     "Ngang"
+    ],
+    "Sâu": [
+     "Sâu"
+    ],
+    "Khối lượng": [
+     "Khối lượng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "6862": [
+  {
+   "container": "Kích thước - khối lượng",
+   "sub_labels": [
+    "Dài",
+    "Cao",
+    "Rộng",
+    "Khối lượng"
+   ],
+   "aliases": {
+    "Dài": [
+     "Dài"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Khối lượng": [
+     "Khối lượng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "7358": [
+  {
+   "container": "Kích thước",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Sâu"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Sâu": [
+     "Sâu"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "9578": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Sâu"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Sâu": [
+     "Sâu"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "10140": [
+  {
+   "container": "Kích thước, khối lượng",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Sâu",
+    "Khối lượng"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Sâu": [
+     "Sâu"
+    ],
+    "Khối lượng": [
+     "Khối lượng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "13538": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Cao",
+    "Ngang",
+    "Sâu",
+    "Khối lượng máy"
+   ],
+   "aliases": {
+    "Cao": [
+     "Cao"
+    ],
+    "Ngang": [
+     "Ngang"
+    ],
+    "Sâu": [
+     "Sâu"
+    ],
+    "Khối lượng máy": [
+     "Khối lượng máy",
+     "Nặng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "2202": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Cao",
+    "Ngang",
+    "Sâu",
+    "Khối lượng máy"
+   ],
+   "aliases": {
+    "Cao": [
+     "Cao"
+    ],
+    "Ngang": [
+     "Ngang"
+    ],
+    "Sâu": [
+     "Sâu"
+    ],
+    "Khối lượng máy": [
+     "Khối lượng máy",
+     "Nặng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "6552": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Cao",
+    "Rộng",
+    "Sâu",
+    "Khối lượng"
+   ],
+   "aliases": {
+    "Cao": [
+     "Cao"
+    ],
+    "Rộng": [
+     "Rộng"
+    ],
+    "Sâu": [
+     "Sâu"
+    ],
+    "Khối lượng": [
+     "Khối lượng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "8841": [
+  {
+   "container": "Kích thước",
+   "sub_labels": [
+    "Cao",
+    "Ngang",
+    "Dày"
+   ],
+   "aliases": {
+    "Cao": [
+     "Cao"
+    ],
+    "Ngang": [
+     "Ngang"
+    ],
+    "Dày": [
+     "Dày"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "9218": [
+  {
+   "container": "Kích thước sản phẩm",
+   "sub_labels": [
+    "Rộng",
+    "Dài",
+    "Cao"
+   ],
+   "aliases": {
+    "Rộng": [
+     "Rộng"
+    ],
+    "Dài": [
+     "Dài"
+    ],
+    "Cao": [
+     "Cao"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "10138": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Sâu",
+    "Khối lượng"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Sâu": [
+     "Sâu"
+    ],
+    "Khối lượng": [
+     "Khối lượng"
+    ]
+   },
+   "source": "nhom_cha_names"
+  },
+  {
+   "container": "Công suất - Dung tích",
+   "sub_labels": [
+    "Công suất",
+    "Dung tích"
+   ],
+   "aliases": {
+    "Công suất": [
+     "Công suất"
+    ],
+    "Dung tích": [
+     "Dung tích"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  },
+  {
+   "container": "Chất liệu ca chứa - Thân máy",
+   "sub_labels": [
+    "Chất liệu đầu vắt",
+    "Chất liệu thân máy",
+    "Chất liệu ca chứa"
+   ],
+   "aliases": {
+    "Chất liệu đầu vắt": [
+     "Chất liệu đầu vắt",
+     "đầu vắt"
+    ],
+    "Chất liệu thân máy": [
+     "Chất liệu thân máy",
+     "thân máy"
+    ],
+    "Chất liệu ca chứa": [
+     "Chất liệu ca chứa",
+     "ca chứa"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  }
+ ],
+ "7498": [
+  {
+   "container": "Kích thước - Khối lượng",
+   "sub_labels": [
+    "Ngang",
+    "Cao",
+    "Sâu"
+   ],
+   "aliases": {
+    "Ngang": [
+     "Ngang"
+    ],
+    "Cao": [
+     "Cao"
+    ],
+    "Sâu": [
+     "Sâu"
+    ]
+   },
+   "source": "nhom_cha_names"
+  }
+ ],
+ "4929": [
+  {
+   "container": "Dung tích",
+   "sub_labels": [
+    "Dung tích",
+    "Dung tích"
+   ],
+   "aliases": {
+    "Dung tích": [
+     "Dung tích"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  }
+ ],
+ "4932": [
+  {
+   "container": "Nơi sản xuất",
+   "sub_labels": [
+    "Sản xuất tại",
+    "Thương hiệu của"
+   ],
+   "aliases": {
+    "Sản xuất tại": [
+     "Sản xuất tại"
+    ],
+    "Thương hiệu của": [
+     "Thương hiệu của"
+    ]
+   },
+   "source": "nhom_an_voi_id"
+  }
+ ],
+ "1942": [
+  {
+   "container": "Cổng nhận hình ảnh, âm thanh",
+   "sub_labels": [
+    "HDMI",
+    "HDMI eARC/ARC",
+    "Composite",
+    "Component",
+    "VGA"
+   ],
+   "aliases": {
+    "HDMI": [
+     "HDMI"
+    ],
+    "HDMI eARC/ARC": [
+     "HDMI eARC/ARC"
+    ],
+    "Composite": [
+     "Composite"
+    ],
+    "Component": [
+     "Component"
+    ],
+    "VGA": [
+     "VGA"
+    ]
+   },
+   "source": "ghep_tu_gia_tri"
+  },
+  {
+   "container": "Cổng xuất âm thanh",
+   "sub_labels": [
+    "Cổng tai nghe, headphone",
+    "Cổng Coaxial",
+    "Cổng Optical",
+    "ARC/eARC"
+   ],
+   "aliases": {
+    "Cổng tai nghe, headphone": [
+     "Cổng tai nghe, headphone"
+    ],
+    "Cổng Coaxial": [
+     "Cổng Coaxial"
+    ],
+    "Cổng Optical": [
+     "Cổng Optical"
+    ],
+    "ARC/eARC": [
+     "ARC/eARC"
+    ]
+   },
+   "source": "ghep_tu_gia_tri"
+  },
+  {
+   "container": "Loại màn hình",
+   "sub_labels": [
+    "Đèn nền (Backlit)",
+    "Tấm nền (Panel)"
+   ],
+   "aliases": {
+    "Đèn nền (Backlit)": [
+     "Đèn nền",
+     "Đèn nền (Backlit)"
+    ],
+    "Tấm nền (Panel)": [
+     "Tấm nền",
+     "Tấm nền (Panel)"
+    ]
+   },
+   "source": "ghep_tu_gia_tri"
+  },
+  {
+   "container": "USB",
+   "sub_labels": [
+    "USB A",
+    "USB Type C"
+   ],
+   "aliases": {
+    "USB A": [
+     "USB A"
+    ],
+    "USB Type C": [
+     "USB Type C",
+     "Type C"
+    ]
+   },
+   "source": "ghep_tu_gia_tri"
+  }
+ ]
+}
