@@ -295,6 +295,11 @@ class Store:
                     rb = self._req("POST", f"/repos/{self.repo}/git/blobs", headers=self._h(),
                                    json={"content": base64.b64encode(d).decode(), "encoding": "base64"})
                     if rb.status_code != 201:
+                        if rb.status_code in (401, 403):
+                            return False, (f"TOKEN GITHUB KHÔNG CÓ QUYỀN GHI vào {self.repo} ({rb.status_code}). Tạo lại token: "
+                                           "Resource owner = tài khoản chứa repo · Repository access = Only select repositories → "
+                                           f"{self.repo} · Permissions → Contents = Read and write · rồi dán token mới vào Secrets "
+                                           "(GITHUB_TOKEN) và Reboot app."), [], {}
                         return False, f"Tạo blob {p} lỗi {rb.status_code}: {rb.text[:200]}", [], {}
                     blob_sha[p] = rb.json()["sha"]
                     self._bo_nho.dat(blob_sha[p], d)
