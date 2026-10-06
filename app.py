@@ -31,31 +31,15 @@ ss = st.session_state
 st.markdown("""
 <style>
 #MainMenu, footer {visibility: hidden;}
-html, body, [class*="css"] {-webkit-font-smoothing:antialiased;}
-.block-container {padding-top: 2.4rem; max-width: 1500px;}
-h1 {font-weight: 800; letter-spacing:-.5px; font-size: 1.7rem;}
-h2, h3 {font-weight: 700; letter-spacing:-.3px;}
-div[data-testid="stMetric"] {background: linear-gradient(180deg,#ffffff,#f6f8fd); border: 1px solid #e3e8f4;
-  border-radius: 14px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04);}
-div[data-testid="stMetricValue"] {font-size: 1.5rem; font-weight: 700;}
-div[data-testid="stMetricLabel"] p {font-size:.8rem; color:#5a6b85;}
-.stButton>button {border-radius: 10px; font-weight: 600; border:1px solid #d7deea;}
-.stButton>button[kind="primary"] {box-shadow:0 2px 6px rgba(47,111,237,.25);}
-div[data-testid="stExpander"] {border:1px solid #e6eaf2; border-radius:12px; box-shadow:0 1px 2px rgba(16,24,40,.03);}
-div[data-baseweb="tab-list"] {gap: 4px;}
-button[data-baseweb="tab"] {border-radius:10px 10px 0 0;}
-div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {border:1px solid #e6eaf2; border-radius:12px;}
-.buoc {background:linear-gradient(90deg,#eef4ff,#f7faff);border-left:4px solid #2f6fed;padding:10px 14px;
-  border-radius:10px;margin:4px 0 12px 0;}
-.canh {background:#fff4f2;border-left:4px solid #c0392b;padding:10px 14px;border-radius:10px;margin:4px 0 12px 0;}
-.pill {display:inline-block;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:600;margin:2px 4px 2px 0;}
+div[data-testid="stMetric"] {background: #f6f8fd; border: 1px solid #e3e8f4; border-radius: 10px; padding: 8px 12px;}
+div[data-testid="stMetricValue"] {font-size: 1.45rem;}
+.buoc {background:#eef4ff;border-left:4px solid #2f6fed;padding:8px 12px;border-radius:6px;margin:4px 0 10px 0;}
+.canh {background:#fff4f2;border-left:4px solid #c0392b;padding:8px 12px;border-radius:6px;margin:4px 0 10px 0;}
+.pill {display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:600;margin-right:6px;}
 .pill-cao{background:#fdeaea;color:#c0392b;} .pill-tb{background:#fff3e0;color:#d97706;}
 .pill-thap{background:#e8f6ec;color:#1b873f;} .pill-tt{background:#eaf1fb;color:#2f6fed;}
-.card {background:#fff;border:1px solid #e6eaf2;border-radius:14px;padding:14px 16px;margin:6px 0;
-  box-shadow:0 1px 3px rgba(16,24,40,.05);}
-.card-h {font-weight:700;font-size:1.02rem;margin-bottom:2px;}
-.card-s {color:#5a6b85;font-size:.86rem;}
-hr {margin:.8rem 0;}
+.card {background:#f8fafd;border:1px solid #e3e8f4;border-radius:10px;padding:10px 14px;margin:6px 0 10px 0;}
+.card-h {font-weight:700;} .card-s {color:#5a6b85;font-size:.88rem;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -1602,7 +1586,7 @@ def tab_qc(k: dict) -> None:
     st.caption("👉 **Bấm vào một dòng** để mở bảng xem & sửa riêng cho lỗi đó (sửa, đối chiếu bằng mắt như Excel).")
     dfq = pd.DataFrame([{"Mức": MUC_ICON[a], "Vùng": b, "Số lượng": n_, "Ý nghĩa": y, "Cách xử lý": g}
                         for a, b, n_, y, g, act, kind in q])
-    ev = st.dataframe(dfq, hide_index=True, width="stretch", key=f"qc_tbl_{ss.ver_map}",
+    ev = st.dataframe(dfq, hide_index=True, width="stretch", key=f"qc_tbl_{ss.get('ver_map', 0)}",
                       on_select="rerun", selection_mode="single-row",
                       column_config={"Số lượng": st.column_config.NumberColumn(format="%d")})
     rows = []
