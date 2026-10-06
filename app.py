@@ -1160,6 +1160,21 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             if len(ss["import"]) and len(ss.data_sp):
                 chay_map_ui()
             st.rerun()
+    if not phan and not da_ng:
+        # Chẩn đoán cụ thể: tool không nhận ra file nào có dữ liệu để nạp
+        chi_tiet = []
+        for ten, r in kq:
+            lo = r.get("loai") or "❌ không nhận ra"
+            if r.get("loi"):
+                chi_tiet.append(f"**{ten}**: {lo} — {r['loi']}")
+            else:
+                chi_tiet.append(f"**{ten}**: {lo}")
+        st.error("⚠️ KHÔNG CÓ DỮ LIỆU NÀO ĐỂ NẠP. Có thể các file đã upload không được nhận diện, hoặc file rỗng. "
+                 "Kiểm tra từng file bên dưới (xem cột 'Nhận là' trong bảng tóm tắt phía trên); nếu file đúng mà "
+                 "'không nhận ra' → gửi file cho mình kiểm tra lại.")
+        for d in chi_tiet:
+            st.caption("• " + d)
+        return
     bump()
     if phan and luu(phan + ["settings"], "Nạp nhanh: " + ", ".join(t for t, _ in kq)):
         ss.flash = ["✔ Đã nạp: " + " · ".join(bao)]
@@ -1492,6 +1507,13 @@ def trang_map() -> None:
     st.title("🔍 Kiểm tra & Đối chiếu")
     if ss.get("map_flash"):
         st.success(ss.pop("map_flash"))
+    # Cảnh báo khi kết quả map CÓ nhưng IMPORT/DATA SP TRỐNG — thường do session trước lưu được ket_qua
+    # mà không lưu được import/data_sp (crash giữa chừng). Người dùng cần nạp lại.
+    if ss.bang and (not len(ss.get("import", [])) or not len(ss.get("data_sp", []))):
+        st.warning("⚠️ Kết quả map có sẵn ({} ngành) nhưng **IMPORT ({} SKU) hoặc DATA SP ({} dòng) đang trống** "
+                   "trong kho — có thể lần nạp trước bị lỗi lưu. Bạn cần vào 🚀 Chạy pipeline → ① Nạp dữ liệu "
+                   "nạp lại file lô (SKU + DATA SP), sau đó bấm Map lại.".format(
+                       len(ss.bang), len(ss.get("import", [])), len(ss.get("data_sp", []))))
     c1, c2, c3 = st.columns([2, 3, 2])
     with c1:
         if st.button("① Map dữ liệu", type="primary", width="stretch"):
@@ -3539,6 +3561,46 @@ def kiem_tra_he_thong() -> None:
         kq.append(("Ghi thử 1 file", False, str(e)))
     st.dataframe(pd.DataFrame([{"": "✅" if ok else "❌", "Hạng mục": a, "Chi tiết": b} for a, ok, b in kq]),
                  hide_index=True, width="stretch")
+    chan_doan_kho_user()
+
+
+def chan_doan_kho_user() -> None:
+    """Hiện danh sách file workspace hiện tại trên kho (đang xem) + số dòng/bytes.
+    Dùng khi app báo 'không có dữ liệu' để biết chính xác kho có gì."""
+    st.markdown("#### 📦 Chẩn đoán kho workspace đang xem")
+    st.caption(f"Workspace: `{ss.ws}` · Giúp xem chính xác file nào có / trống trên GitHub.")
+    S = tao_store()
+    rows = []
+    for ten, f in F_USER.items():
+        path = f"users/{ss.ws}/{f}"
+        try:
+            data = S.doc(path)
+        except Exception as e:  # noqa: BLE001
+            rows.append({"File": f, "Trạng thái": f"❌ Lỗi: {str(e)[:50]}", "Kích thước": "", "Nội dung": ""})
+            continue
+        if data is None:
+            rows.append({"File": f, "Trạng thái": "⚠️ Không có trên kho", "Kích thước": "", "Nội dung": ""})
+            continue
+        kich = f"{len(data):,} bytes"
+        noi_dung = ""
+        try:
+            if f.endswith(".parquet"):
+                df = bytes_to_df(data, COT.get(ten, []))
+                noi_dung = f"{len(df):,} dòng, {len(df.columns)} cột"
+            elif f.endswith(".json"):
+                j = bytes_to_json(data, None)
+                if isinstance(j, dict):
+                    noi_dung = f"dict: {len(j)} khoá"
+                elif isinstance(j, list):
+                    noi_dung = f"list: {len(j)} phần tử"
+                else:
+                    noi_dung = type(j).__name__
+        except Exception as e:  # noqa: BLE001
+            noi_dung = f"⚠️ Đọc lỗi: {str(e)[:60]}"
+        rows.append({"File": f, "Trạng thái": "✅ Có", "Kích thước": kich, "Nội dung": noi_dung})
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+    st.caption("Nếu file quan trọng (import, data_sp) hiện **Không có trên kho** mà bang (ket_qua) lại có → "
+               "session trước lưu dở, nạp lại ở 🚀 Chạy pipeline → ① Nạp dữ liệu.")
 
 
 def trang_quan_tri() -> None:
