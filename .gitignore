@@ -1,0 +1,5 @@
+.streamlit/secrets.toml
+_du_lieu_cuc_bo/
+__pycache__/
+*.pyc
+.venv/

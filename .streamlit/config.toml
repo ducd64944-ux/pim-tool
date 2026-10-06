@@ -1,0 +1,9 @@
+[server]
+maxUploadSize = 500
+maxMessageSize = 500
+
+[theme]
+primaryColor = "#2f6fed"
+
+[client]
+toolbarMode = "minimal"
