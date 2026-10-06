@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.7 · 2026-10-06 (bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.7 · 2026-10-06 (xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -1522,6 +1522,9 @@ def trang_map() -> None:
     with tabs[9]:
         lg = pd.DataFrame(ss.meta.get("log", []), columns=["SKU", "Ngành hàng", "Mã", "Nguyên nhân"])
         st.dataframe(lg, hide_index=True, height=420)
+    st.divider()
+    st.markdown("### ④ Xuất file import — khi đã kiểm tra & đối chiếu xong")
+    khu_xuat(k)
 
 
 # ============================================================================
@@ -1594,7 +1597,7 @@ def tab_qc(k: dict) -> None:
     c[2].metric("% đầy đủ trung bình", f"{h['nganh']['% đầy đủ TB'].mean():.0f}%" if len(h["nganh"]) else "–")
     c[3].metric("SKU sẵn sàng (đủ bắt buộc)", f"{san_sang:,}/{n:,}")
     if not q:
-        st.success("✔ Không còn mục nào cần xử lý — sang 📤 Xuất file.")
+        st.success("✔ Không còn mục nào cần xử lý — cuộn xuống ④ Xuất file import.")
         return
     st.caption("👉 **Bấm vào một dòng** để mở bảng xem & sửa riêng cho lỗi đó (sửa, đối chiếu bằng mắt như Excel).")
     dfq = pd.DataFrame([{"Mức": MUC_ICON[a], "Vùng": b, "Số lượng": n_, "Ý nghĩa": y, "Cách xử lý": g}
@@ -2733,13 +2736,7 @@ def tab_chua_map() -> None:
 # ============================================================================
 # TRANG: XUẤT FILE
 # ============================================================================
-def trang_xuat() -> None:
-    st.title("📤 Xuất file import")
-    if bang_trong():
-        st.info("Chưa có kết quả map — vào 🚀 Map & kiểm tra.")
-        return
-    k = kq()
-    the_so(k)
+def khu_xuat(k: dict) -> None:
     s = k["stat"]
     canh = [(s.get("thieu_model", 0), "SKU thiếu model_code"), (s.get("thieu_cate", 0), "SKU thiếu category_code"),
             (s.get(C.TRANG_THAI_KHAC, 0), "ô KHÁC spec PIM (sẽ ghi đè)"),
@@ -2787,6 +2784,15 @@ def trang_xuat() -> None:
     if ss.get("ws_mau"):
         st.download_button("⬇️ du_lieu_pim.xlsx", ss.ws_mau, file_name=f"du_lieu_pim_{ss.ws}_{C.bay_gio()[:10]}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+def trang_xuat() -> None:
+    st.subheader("📤 Xuất file import")
+    if bang_trong():
+        st.info("Chưa có kết quả map — bấm ① Map dữ liệu ở trên.")
+        return
+    k = kq()
+    khu_xuat(k)
 
 
 # ============================================================================
