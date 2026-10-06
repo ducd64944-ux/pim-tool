@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.8 · 2026-10-06 (AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.9 · 2026-10-06 (AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -237,7 +237,7 @@ def dang_nhap() -> None:
 F_SHARED = {"cau_hinh": "shared/cau_hinh.json", "quy_doi": "shared/quy_doi_filter.json",
             "sua_sku": "shared/sua_sku.json", "sua_gt": "shared/sua_gia_tri.json",
             "dx_duyet": "shared/de_xuat_duyet.json", "quy_tac_kt": "shared/quy_tac_kiem_tra.json",
-            "ai_cau_hinh": "shared/ai_cau_hinh.json",
+            "ai_cau_hinh": "shared/ai_cau_hinh.json", "ai_hoc": "shared/ai_hoc.json",
             "map_tskt": "shared/map_tskt.parquet",
             "map_filter": "shared/map_filter.parquet", "data_pim": "shared/data_pim.parquet"}
 F_USER = {"import": "import.parquet", "data_sp": "data_sp.parquet", "spec": "spec.parquet",
@@ -259,7 +259,7 @@ def bump() -> None:
     ss.ver = ss.get("ver", 0) + 1
 
 
-F_JSON = ("cau_hinh", "quy_doi", "sua_sku", "sua_gt", "dx_duyet", "quy_tac_kt", "ai_cau_hinh")
+F_JSON = ("cau_hinh", "quy_doi", "sua_sku", "sua_gt", "dx_duyet", "quy_tac_kt", "ai_cau_hinh", "ai_hoc")
 DX_DIR = "shared/de_xuat"
 
 
@@ -300,6 +300,7 @@ def nap_shared() -> None:
     tao_store().phien_ban_thu_muc("shared")
     ss.cau_hinh = bytes_to_json(doc_file(F_SHARED["cau_hinh"]), {}) or {}
     ss.ai_cau_hinh = bytes_to_json(doc_file(F_SHARED["ai_cau_hinh"]), {}) or {}
+    ss.ai_hoc = bytes_to_json(doc_file(F_SHARED["ai_hoc"]), {}) or {}
     nap_quy_tac()
     if ss.get("admin"):
         try:
@@ -731,6 +732,11 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None) -> No
                            "Biến đổi": x.get("so_o_bd", 0), "Không/Đang cập nhật": x.get("so_o_rong", 0),
                            "Tách xin data": x.get("bo_trong", 0), "Cảnh báo": " | ".join(canh or [])})
         luu(["lich_su"], f"Xuất {len(x['files'])} file import")
+        # AI tự học: dùng chính lô vừa xuất (coi như đã được xác nhận) làm mẫu cho lần sau
+        try:
+            cap_nhat_ai_hoc_tu_bang(chi_cate=list(chon))
+        except Exception:  # noqa: BLE001
+            pass
     x = ss.get("xuat")
     if x:
         st.markdown("#### Tải file (mở được ngay, không cần giải nén)")
@@ -1478,6 +1484,87 @@ def khu_nap_rieng() -> None:
 NHAN_MAP_TEN = {"tat": "Tắt — chỉ theo mã PROPERTYID (đúng bản desktop, khuyên dùng)",
                 "cau_hinh": "Thêm: theo tên cột của chính ngành hàng (khác desktop — soát lại)",
                 "tham_chieu": "Thêm bảng tham chiếu tên (rộng hơn — cần soát lại)"}
+
+
+
+# ============================================================================
+# AI tự học từ các lô ĐÃ XUẤT (được coi là đã xác nhận bởi người dùng)
+# KHÔNG đụng vào logic map/QC; chỉ GOM top giá trị theo (cate, cột) để sau này so sánh.
+# ============================================================================
+def cap_nhat_ai_hoc_tu_bang(chi_cate: list | None = None) -> dict:
+    """Trích top-20 giá trị + đếm theo (cate, cột) từ GIÁ TRỊ SẼ XUẤT của bang hiện tại.
+    Gộp vào ss.ai_hoc rồi lưu lên kho dùng chung. Trả về thống kê để báo."""
+    from collections import Counter
+    hoc = dict(ss.get("ai_hoc") or {})
+    tk = {"cate": 0, "cot": 0, "o": 0}
+    for cate, b in ss.bang.items():
+        if chi_cate is not None and cate not in chi_cate:
+            continue
+        c_hoc = dict(hoc.get(cate, {}))
+        tk["cate"] += 1
+        for code in C.cot_tt(b):
+            if code.lower() in C.COT_KHONG_PHAI_SPEC or C.la_cot_filter(code):
+                continue
+            dem = Counter()
+            for r in b["rows"]:
+                v, _ = C.bien_doi_o(cate, r["sku"], code, r["vals"].get(code, ""), ss.sua, ss.dv, ss.rong)
+                if v:
+                    dem[str(v)[:120]] += 1
+            if not dem:
+                continue
+            tk["cot"] += 1
+            tk["o"] += sum(dem.values())
+            cu = c_hoc.get(code, {}) or {}
+            tv_cu = Counter(cu.get("top_values") or {})
+            tv_cu.update(dem)
+            top = dict(tv_cu.most_common(20))
+            c_hoc[code] = {"top_values": top, "total_samples": cu.get("total_samples", 0) + sum(dem.values()),
+                           "last_updated": C.bay_gio()[:10],
+                           "contributors": sorted(set((cu.get("contributors") or []) + [ss.user]))[:20]}
+        hoc[cate] = c_hoc
+    ss.ai_hoc = hoc
+    try:
+        luu(["shared:ai_hoc"], f"[{ss.user}] AI tự học {tk['cate']} ngành · {tk['cot']} cột · {tk['o']} ô")
+    except Exception:  # noqa: BLE001
+        pass
+    return tk
+
+
+def qc_nguoc_tu_ai_hoc() -> list:
+    """QC ngược: so các ô CÓ giá trị hiện tại với mẫu đã học của chính ngành đó.
+    Flag: ô có giá trị CHƯA TỪNG GẶP trong 20 giá trị thường gặp, với ngành đã có ≥ 10 mẫu.
+    Trả về list dict {cate, sku, ma, ten, gia_tri_hien, goi_y_top, ly_do}."""
+    hoc = ss.get("ai_hoc") or {}
+    kq = []
+    for cate, b in ss.bang.items():
+        c_hoc = hoc.get(cate) or {}
+        if not c_hoc:
+            continue
+        for code in C.cot_tt(b):
+            if code.lower() in C.COT_KHONG_PHAI_SPEC or C.la_cot_filter(code):
+                continue
+            info = c_hoc.get(code)
+            if not info or info.get("total_samples", 0) < 10:
+                continue
+            top = info.get("top_values") or {}
+            top_set = set(top)
+            for r in b["rows"]:
+                v, _ = C.bien_doi_o(cate, r["sku"], code, r["vals"].get(code, ""), ss.sua, ss.dv, ss.rong)
+                if not v:
+                    continue
+                v_short = str(v)[:120]
+                if v_short in top_set:
+                    continue
+                goi_y = ", ".join(list(top.keys())[:3])
+                kq.append({
+                    "cate": cate, "sku": r["sku"], "ma": code,
+                    "ten": b["ten"].get(code, ""),
+                    "gia_tri_hien": v_short,
+                    "goi_y_top": goi_y,
+                    "ly_do": f"Chưa gặp trong {info.get('total_samples', 0):,} mẫu đã duyệt — "
+                             f"thường gặp: {goi_y}",
+                })
+    return kq
 
 
 def chay_map_ui() -> None:
@@ -2315,12 +2402,55 @@ def tab_ai_ra_soat(k: dict) -> None:
         st.info("Bấm **🚀 Rà soát ngay** để AI đọc toàn bộ lô và đưa ra nhận xét.")
 
 
+def tab_qc_nguoc(k: dict) -> None:
+    """QC ngược: so với THƯ VIỆN AI (gom từ các lô ĐÃ XUẤT thành công) của chính ngành đó."""
+    hoc = ss.get("ai_hoc") or {}
+    co_hoc = {c: len(v) for c, v in hoc.items() if v}
+    st.caption("So giá trị ô hiện tại với **top-20 giá trị thường gặp** của mỗi (ngành · cột) đã học từ các lô "
+               "**đã xuất file import** trước đây. Ô có giá trị **chưa từng gặp** sẽ bị flag để bạn kiểm tra. "
+               "Thư viện tự cập nhật mỗi lần có ai bấm 📤 Tạo file import.")
+    if not hoc:
+        st.info("Thư viện AI đang trống — chưa có lô nào xuất file được dùng để học. Khi bạn (hoặc thành viên) "
+                "bấm 📤 Tạo file import ở trang Xuất, dữ liệu lô đó sẽ được dùng làm mẫu cho lần sau.")
+        return
+    st.caption("Thư viện có: " + " · ".join(f"**{c}** ({n} cột)" for c, n in sorted(co_hoc.items())))
+    kq = qc_nguoc_tu_ai_hoc()
+    if not kq:
+        st.success("✔ Không phát hiện ô nào bất thường so với thư viện AI.")
+        return
+    import pandas as _pd
+    df = _pd.DataFrame(kq)
+    c = st.columns([2, 3, 2])
+    cate_cs = c[0].multiselect("Lọc ngành", sorted(df.cate.unique()), key="qcng_cate")
+    ma_cs = c[1].multiselect("Lọc mã TSKT", sorted(df.ma.unique()), key="qcng_ma")
+    tim = c[2].text_input("Tìm (SKU / giá trị)", key="qcng_tim")
+    v = df
+    if cate_cs:
+        v = v[v.cate.isin(cate_cs)]
+    if ma_cs:
+        v = v[v.ma.isin(ma_cs)]
+    if tim:
+        t = tim.lower()
+        v = v[v.sku.str.lower().str.contains(t, regex=False) | v.gia_tri_hien.str.lower().str.contains(t, regex=False)]
+    st.caption(f"**{len(v):,}** ô cần xem (tổng {len(df):,}). Giá trị *không bịa* — chỉ so với các giá trị đã có trong thư viện.")
+    hien = _pd.DataFrame({"NH": v.cate, "SKU": v.sku, "Mã TSKT": v.ma, "Tên": v.ten,
+                          "Giá trị hiện tại": v.gia_tri_hien, "Top thường gặp": v.goi_y_top,
+                          "Lý do": v.ly_do})
+    st.dataframe(hien.head(1000), hide_index=True, height=min(520, 60 + 35 * min(len(hien), 15)),
+                 column_config={"Lý do": st.column_config.TextColumn(width="large")})
+    st.caption("Cách xử lý: ô bất thường mà bạn vẫn muốn giữ → kệ nó. Giá trị sai → sửa ở tab ≠ Khác spec PIM "
+               "hoặc 🔎 Theo SKU. Bạn xuất file lần này cũng sẽ góp mẫu cho thư viện.")
+
+
 def tab_ai(k: dict) -> None:
     con = st.radio("Chọn", ["🧠 Kiểm tra thông minh (miễn phí, không cần AI)", "🔍 Rà soát toàn bộ (AI, 1 phát)",
-                             "🤖 AI rà từng SKU", "💬 Hỏi AI"],
+                             "📚 QC ngược (học từ file đã duyệt)", "🤖 AI rà từng SKU", "💬 Hỏi AI"],
                    horizontal=True, label_visibility="collapsed", key="ai_che_do")
     if con.startswith("🔍"):
         tab_ai_ra_soat(k)
+        return
+    if con.startswith("📚"):
+        tab_qc_nguoc(k)
         return
     if con.startswith("🧠"):
         g = ttm()
@@ -3595,6 +3725,42 @@ def kiem_tra_he_thong() -> None:
     st.dataframe(pd.DataFrame([{"": "✅" if ok else "❌", "Hạng mục": a, "Chi tiết": b} for a, ok, b in kq]),
                  hide_index=True, width="stretch")
     chan_doan_kho_user()
+    thu_vien_ai_hoc()
+
+
+def thu_vien_ai_hoc() -> None:
+    """Trang quản lý thư viện AI học (admin): xem số liệu, xoá, xuất Excel."""
+    st.markdown("#### 📚 Thư viện AI tự học (từ các lô đã xuất file)")
+    hoc = ss.get("ai_hoc") or {}
+    if not hoc:
+        st.caption("Chưa có dữ liệu. Mỗi lần ai đó bấm 📤 Tạo file import ở trang Xuất, các ô có giá trị sẽ được "
+                   "gom vào đây theo (ngành · cột) để làm mẫu cho các lô sau (dùng ở tab 📚 QC ngược).")
+        return
+    rows = []
+    for cate, cols in sorted(hoc.items()):
+        for ma, info in sorted((cols or {}).items()):
+            rows.append({"Mã NH": cate, "Mã cột": ma,
+                         "Số mẫu": info.get("total_samples", 0),
+                         "Số giá trị top": len(info.get("top_values") or {}),
+                         "Lần cuối": info.get("last_updated", ""),
+                         "Người góp": ", ".join(info.get("contributors") or [])[:60]})
+    import pandas as _pd
+    df = _pd.DataFrame(rows)
+    st.caption(f"Tổng: **{len(hoc)}** ngành · **{len(df):,}** cột · "
+               f"**{int(df['Số mẫu'].sum()):,}** mẫu")
+    st.dataframe(df, hide_index=True, height=min(400, 60 + 35 * min(len(df), 10)))
+    cc = st.columns(3)
+    if cc[0].button("🗑 Xoá toàn bộ thư viện AI học", disabled=not ss.admin):
+        ss.ai_hoc = {}
+        luu(["shared:ai_hoc"], f"[{ss.user}] Xoá thư viện AI học")
+        st.success("✔ Đã xoá.")
+        st.rerun()
+    cat_xoa = cc[1].selectbox("Xoá riêng ngành", [""] + sorted(hoc.keys()), key="aihoc_xoa_cate")
+    if cc[1].button("🗑 Xoá ngành đã chọn", disabled=not (ss.admin and cat_xoa)):
+        ss.ai_hoc = {c: v for c, v in hoc.items() if c != cat_xoa}
+        luu(["shared:ai_hoc"], f"[{ss.user}] Xoá thư viện AI học ngành {cat_xoa}")
+        st.success(f"✔ Đã xoá ngành {cat_xoa}.")
+        st.rerun()
 
 
 def chan_doan_kho_user() -> None:
@@ -3821,16 +3987,20 @@ if ss.vung not in VUNG:
     ss.vung = VUNG[0]
 st.segmented_control("Vùng làm việc", VUNG, key="vung", required=True, width="stretch", label_visibility="collapsed")
 
-# Thanh trạng thái: hiện NGAY các số then chốt (IMPORT · DATA SP · spec · bang · cấu hình). Giúp người
-# dùng BIẾT NGAY dữ liệu nào có / thiếu, không phải mò xuống dưới hoặc đoán.
+# Thanh trạng thái NGANG 1 dòng (giống bản desktop): hiện ngay số then chốt.
 try:
-    _sb = st.columns([1, 1, 1, 1, 1, 1])
-    _sb[0].caption(f"**IMPORT**: {len(ss.get('import', [])):,} SKU")
-    _sb[1].caption(f"**DATA SP**: {len(ss.get('data_sp', [])):,} dòng")
-    _sb[2].caption(f"**spec PIM cũ**: {(ss.spec.sku.nunique() if ('spec' in ss and len(ss.spec)) else 0):,} SKU")
-    _sb[3].caption(f"**bang (đã map)**: {sum(len(b.get('rows', [])) for b in ss.get('bang', {}).values()):,} SKU · {len(ss.get('bang', {}))} ngành")
-    _sb[4].caption(f"**Cấu hình**: {len(ss.get('cau_hinh', {}))} ngành")
-    _sb[5].caption(f"**Mapping**: TSKT {len(ss.get('map_tskt', [])):,} · FILTER {len(ss.get('map_filter', [])):,}")
+    _s_imp = len(ss.get('import', []))
+    _s_dsp = len(ss.get('data_sp', []))
+    _s_spec = ss.spec.sku.nunique() if ('spec' in ss and len(ss.spec)) else 0
+    _s_bang_sku = sum(len(b.get('rows', [])) for b in ss.get('bang', {}).values())
+    _s_bang_cate = len(ss.get('bang', {}))
+    _s_ch = len(ss.get('cau_hinh', {}))
+    _s_mt = len(ss.get('map_tskt', []))
+    _s_mf = len(ss.get('map_filter', []))
+    _s_hoc = sum(len(v) for v in (ss.get('ai_hoc') or {}).values())
+    st.caption(f"📋 IMPORT **{_s_imp:,}** · 📦 DATA SP **{_s_dsp:,}** · 🧾 spec cũ **{_s_spec:,}** · "
+               f"🗂️ bang **{_s_bang_sku:,}** SKU / {_s_bang_cate} ngành · 🏷️ Cấu hình **{_s_ch}** ngành · "
+               f"🧬 Mapping TSKT **{_s_mt:,}** · FILTER **{_s_mf:,}** · 🧠 AI học **{_s_hoc}** cột")
 except Exception:
     pass
 if ss.vung == VUNG[0]:
