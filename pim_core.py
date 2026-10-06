@@ -2512,12 +2512,51 @@ def doc_mau_nganh(rows: List[list]) -> Dict[str, dict]:
         return {}  # có dòng dữ liệu -> không phải file mẫu trống
     cot, ten_cot = [], {}
     for j, v in ma:
-        if v.lower() in COT_KHONG_DIEN or v in cot:
+        # LOẠI 8 cột cố định (= COT_KHONG_PHAI_SPEC): model_code, sku, category_code, variant_code,
+        # family_code, family_variant_code, model_activated, variant_activated
+        if v.lower() in COT_KHONG_PHAI_SPEC or v in cot:
             continue
         cot.append(v)
         if j < len(r2) and r2[j]:
             ten_cot[v] = r2[j]
     return {cate: {"ten": ten, "cot": cot, "ten_cot": ten_cot}} if cot else {}
+
+
+
+
+def doc_cot_tu_sku(rows: List[list]) -> Tuple[str, List[Tuple[str, str]]]:
+    """Trích danh sách cột THUỘC TÍNH từ file export PIM (có dữ liệu SKU): dòng 1 = mã cột, dòng 2 = tên.
+    Trả về (cate_id gợi ý từ category_code của dữ liệu, [(ma_cot, ten_vn), ...]).
+    Loại 8 cột cố định (COT_KHONG_PHAI_SPEC). Dùng để OFFER thêm cột vào Cấu hình ngành."""
+    if not rows or len(rows) < 2:
+        return "", []
+    h1 = [chuan_hoa_key(h) for h in rows[0]]
+    h2 = [chuan_hoa_key(h) for h in rows[1]] if len(rows) > 1 else []
+    cot = []
+    for j, v in enumerate(h1):
+        if not v or v.lower() in COT_KHONG_PHAI_SPEC:
+            continue
+        if not re.fullmatch(r"[A-Za-z0-9_]+", v) or "_" not in v:
+            continue
+        ten = h2[j] if j < len(h2) else ""
+        cot.append((v, ten))
+    # tìm category_code có mặt
+    idx = {h.lower(): j for j, h in enumerate(h1)}
+    j_cate = idx.get("category_code")
+    if j_cate is None:
+        j_cate = tim_cot_truong(h1, "category_code")
+    cate_id = ""
+    if j_cate is not None and j_cate >= 0:
+        from collections import Counter as _C
+        c = _C()
+        for r in rows[2:]:
+            if j_cate < len(r):
+                v = chuan_hoa_id(r[j_cate])
+                if v:
+                    c[v] += 1
+        if c:
+            cate_id = c.most_common(1)[0][0]
+    return cate_id, cot
 
 
 LOAI_FILE = {"nganh": "File mẫu ngành hàng (Export Product Template) → Cấu hình ngành",
@@ -2557,6 +2596,9 @@ def nhan_dien_file(data: bytes, ten_file: str) -> dict:
                             "ghi_chu": ["Không nhận ra tiêu đề — đọc theo vị trí cột như desktop (A..G)."]}
         r = doc_mot_cuc(rows)
         if len(r["import"]):
+            # Trích danh sách cột thuộc tính (gợi ý cấu hình ngành) từ chính file này.
+            cate_gy, cot_gy = doc_cot_tu_sku(rows)
+            r["goi_y_cfg"] = {"cate_id": cate_gy, "cot": cot_gy}
             return {"loai": "sku", **r, "sheet": sh}
     return {"loai": None, "loi": "Không nhận ra loại file (cần: workspace mẫu / CMS export / danh sách SKU)."}
 

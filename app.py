@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-1.7 · 2026-10-06 (xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-1.8 · 2026-10-06 (AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 st.markdown("""
@@ -237,6 +237,7 @@ def dang_nhap() -> None:
 F_SHARED = {"cau_hinh": "shared/cau_hinh.json", "quy_doi": "shared/quy_doi_filter.json",
             "sua_sku": "shared/sua_sku.json", "sua_gt": "shared/sua_gia_tri.json",
             "dx_duyet": "shared/de_xuat_duyet.json", "quy_tac_kt": "shared/quy_tac_kiem_tra.json",
+            "ai_cau_hinh": "shared/ai_cau_hinh.json",
             "map_tskt": "shared/map_tskt.parquet",
             "map_filter": "shared/map_filter.parquet", "data_pim": "shared/data_pim.parquet"}
 F_USER = {"import": "import.parquet", "data_sp": "data_sp.parquet", "spec": "spec.parquet",
@@ -258,7 +259,7 @@ def bump() -> None:
     ss.ver = ss.get("ver", 0) + 1
 
 
-F_JSON = ("cau_hinh", "quy_doi", "sua_sku", "sua_gt", "dx_duyet", "quy_tac_kt")
+F_JSON = ("cau_hinh", "quy_doi", "sua_sku", "sua_gt", "dx_duyet", "quy_tac_kt", "ai_cau_hinh")
 DX_DIR = "shared/de_xuat"
 
 
@@ -298,6 +299,7 @@ def nap_tat_ca_de_xuat() -> None:
 def nap_shared() -> None:
     tao_store().phien_ban_thu_muc("shared")
     ss.cau_hinh = bytes_to_json(doc_file(F_SHARED["cau_hinh"]), {}) or {}
+    ss.ai_cau_hinh = bytes_to_json(doc_file(F_SHARED["ai_cau_hinh"]), {}) or {}
     nap_quy_tac()
     if ss.get("admin"):
         try:
@@ -579,9 +581,13 @@ def bang_chon_nganh(key: str) -> list:
 
 
 def tao_ai() -> AIH.AI:
-    prov = ss.get("ai_prov_tam") or sec("AI_PROVIDER", "groq")
-    key = ss.get("ai_key_tam") or sec("AI_API_KEY", "") or sec(f"{str(prov).upper()}_API_KEY", "")
-    return AIH.AI(prov, key, ss.get("ai_model_tam") or sec("AI_MODEL", ""), sec("AI_BASE_URL", ""))
+    acf = ss.get("ai_cau_hinh") or {}
+    prov = ss.get("ai_prov_tam") or acf.get("provider") or sec("AI_PROVIDER", "groq")
+    key = (ss.get("ai_key_tam") or acf.get("api_key")
+           or sec("AI_API_KEY", "") or sec(f"{str(prov).upper()}_API_KEY", ""))
+    model = ss.get("ai_model_tam") or acf.get("model") or sec("AI_MODEL", "")
+    base = acf.get("base_url") or sec("AI_BASE_URL", "")
+    return AIH.AI(prov, key, model, base)
 
 
 def ten_sp(sku: str) -> str:
@@ -1021,6 +1027,37 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                              disabled=not duoc_sua_chung(), key=f"{key}_ng")
         if not duoc_sua_chung():
             st.caption("Chỉ admin cập nhật cấu hình dùng chung.")
+    # ---- GỢI Ý cấu hình ngành từ file SKU (file export PIM có cột TSKT) ----
+    ds_gy_cfg = []  # [(ten_file, cate_id_gy, [(ma,tv),...])]
+    for ten_file, r in kq:
+        if r.get("loai") != "sku":
+            continue
+        gy = r.get("goi_y_cfg") or {}
+        cot_gy = gy.get("cot") or []
+        if not cot_gy:
+            continue
+        ds_gy_cfg.append((ten_file, gy.get("cate_id", ""), cot_gy))
+    cat_them = []  # [(cate_id, cate_ten, [(ma,tv),...])]
+    if ds_gy_cfg and duoc_sua_chung():
+        with st.expander(f"➕ Thêm cấu hình ngành từ file SKU ({sum(len(c) for _,_,c in ds_gy_cfg):,} cột gợi ý)",
+                         expanded=True):
+            st.caption("Tool thấy file export PIM có kèm danh sách cột TSKT. Xác nhận **mã ngành** và **tên ngành** để "
+                       "thêm vào Cấu hình ngành (dùng chung). Ngành đã có → chỉ bổ sung cột còn thiếu, không xoá cột cũ.")
+            for i, (ten_file, cate_gy, cot_gy) in enumerate(ds_gy_cfg):
+                st.markdown(f"**📄 {ten_file}** — {len(cot_gy)} cột thuộc tính")
+                cols = st.columns([1.2, 2.5, 1])
+                cid = cols[0].text_input("Mã ngành", value=cate_gy, key=f"{key}_cfg_cid_{i}",
+                                         help="Số CATEGORYID của ngành (vd: 1988, 9218)")
+                cu_ten = (ss.cau_hinh.get(C.chuan_hoa_id(cid), {}) or {}).get("ten", "") if cid else ""
+                cten = cols[1].text_input("Tên ngành", value=cu_ten, key=f"{key}_cfg_cten_{i}",
+                                          placeholder="vd: Xe đạp tập thể dục")
+                ok = cols[2].checkbox("Áp dụng", value=bool(cid), key=f"{key}_cfg_ok_{i}",
+                                      disabled=not cid)
+                with st.expander(f"Xem {len(cot_gy)} cột sẽ thêm", expanded=False):
+                    st.dataframe(pd.DataFrame(cot_gy, columns=["Mã cột", "Tên tiếng Việt"]),
+                                 hide_index=True, height=min(300, 40 + 30 * min(len(cot_gy), 10)))
+                if ok and cid:
+                    cat_them.append((C.chuan_hoa_id(cid), (cten or "").strip(), cot_gy))
     if co_mau:
         lay_chung = st.checkbox("File mẫu: cập nhật mapping / cấu hình / DATA PIM dùng chung (gộp theo ngành)",
                                 value=False, disabled=not duoc_sua_chung(), key=f"{key}_chung",
@@ -1036,6 +1073,24 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         ss.cau_hinh = ch
         luu(["shared:cau_hinh"], "Nạp cấu hình ngành từ file mẫu: " + ", ".join(t for t, _ in ds_ng))
         da_ng = [f"{v['ten']} ({c}) {len(v['cot'])} cột" for c, v in moi_ng.items()]
+    # Áp các gợi ý "thêm cấu hình từ file SKU" (chỉ thêm cột còn thiếu, giữ cột cũ)
+    if cat_them and duoc_sua_chung():
+        nap_shared()
+        for cid, cten, cot_gy in cat_them:
+            o = ss.cau_hinh.setdefault(cid, {"ten": "", "cot": [], "ten_cot": {}})
+            if cten and not o.get("ten"):
+                o["ten"] = cten
+            elif cten:
+                o["ten"] = cten
+            them_n = 0
+            for ma, tv in cot_gy:
+                if ma not in o["cot"]:
+                    o["cot"].append(ma)
+                    them_n += 1
+                if tv and ma not in o.get("ten_cot", {}):
+                    o.setdefault("ten_cot", {})[ma] = tv
+            da_ng.append(f"{(cten or o.get('ten') or cid)} ({cid}) +{them_n} cột")
+        luu(["shared:cau_hinh"], f"Thêm cấu hình ngành từ file SKU: {len(cat_them)} ngành")
     for ten, r in kq:
         if r.get("loai") == "mau":
             if lay_chung and duoc_sua_chung():
@@ -2144,9 +2199,69 @@ def _bang_ap_dung(df: pd.DataFrame, key: str, cot_goi_y: str = "Gợi ý") -> No
             st.warning("Chưa có dòng nào được tick / có gợi ý.")
 
 
+def tab_ai_ra_soat(k: dict) -> None:
+    """AI đọc tổng thể lô: cảnh báo, nghi sai, đối soát, mapping thiếu — tự suy luận ra điểm phi logic.
+    Chạy 1 lần (hoặc khi bấm chạy lại). Kết quả lưu theo ver_map; thao tác khác không gọi lại AI."""
+    ai = tao_ai()
+    st.caption("AI đọc **toàn bộ** số liệu lô (cảnh báo, nghi sai, đối soát, mapping, ví dụ ô bất thường) rồi đưa ra "
+               "nhận xét logic + đề xuất xử lý theo thứ tự ưu tiên. Chạy 1 phát; không gọi lại trừ khi bạn bấm làm lại.")
+    if not ai.co_san:
+        st.warning("Chưa cấu hình AI. Vào 👥 Quản trị → 🔑 Lưu API key AI (hoặc đặt trong Secrets).")
+        return
+    key_cache = f"ra_soat_{ss.get('ver_map', 0)}"
+    cached = ss.get(key_cache)
+    c = st.columns([1.4, 1, 3])
+    chay = c[0].button("🚀 Rà soát ngay" if not cached else "🔄 Rà soát lại", type="primary", key="rs_run")
+    if cached:
+        c[1].caption(f"Lúc chạy: {cached.get('luc', '')}")
+    if chay:
+        with st.spinner(f"AI đang rà soát ({ai.mo_ta})… 10–30 giây"):
+            try:
+                nc = ngu_canh_lo(k)
+                mau_o = []
+                for cate, b in list(ss.bang.items())[:3]:
+                    for r in b["rows"][:40]:
+                        for c_ in C.cot_tt(b)[:6]:
+                            v = r["vals"].get(c_, "")
+                            if v:
+                                mau_o.append(f"{cate}·{c_}·{r['sku']}: {str(v)[:60]}")
+                            if len(mau_o) >= 80:
+                                break
+                        if len(mau_o) >= 80:
+                            break
+                    if len(mau_o) >= 80:
+                        break
+                prompt = ("Bạn là chuyên gia QC dữ liệu PIM. Hãy đọc kỹ số liệu lô dưới đây và chỉ ra "
+                          "**các điểm phi logic / rủi ro / bất thường** mà con người có thể bỏ sót. "
+                          "Trả về markdown theo cấu trúc:\n"
+                          "## 1. Điểm phi logic (ưu tiên)\n- …\n"
+                          "## 2. Nghi vấn dữ liệu (cần kiểm tra tay)\n- …\n"
+                          "## 3. Thứ tự xử lý đề xuất\n1. …\n"
+                          "## 4. Tối ưu quy trình\n- …\n\n"
+                          "Yêu cầu: ngắn gọn, cụ thể, có dẫn chứng mã TSKT/SKU khi có. "
+                          "Không bịa số liệu. Nếu dữ liệu ổn, nói rõ.\n\n"
+                          "Mẫu ô dữ liệu (cate·ma·sku: giá trị):\n" + "\n".join(mau_o))
+                tl = AIH.hoi(ai, prompt, nc, [])
+                ss[key_cache] = {"ket_qua": tl, "luc": C.bay_gio(), "model": ai.mo_ta}
+                st.rerun()
+            except AIH.LoiAI as e:
+                st.error(f"Lỗi AI: {e}")
+                return
+    if cached:
+        st.markdown("---")
+        st.markdown(cached["ket_qua"])
+        st.caption(f"Model: {cached.get('model', '')} · {cached.get('luc', '')}")
+    else:
+        st.info("Bấm **🚀 Rà soát ngay** để AI đọc toàn bộ lô và đưa ra nhận xét.")
+
+
 def tab_ai(k: dict) -> None:
-    con = st.radio("Chọn", ["🧠 Kiểm tra thông minh (miễn phí, không cần AI)", "🤖 AI rà từng SKU", "💬 Hỏi AI"],
+    con = st.radio("Chọn", ["🧠 Kiểm tra thông minh (miễn phí, không cần AI)", "🔍 Rà soát toàn bộ (AI, 1 phát)",
+                             "🤖 AI rà từng SKU", "💬 Hỏi AI"],
                    horizontal=True, label_visibility="collapsed", key="ai_che_do")
+    if con.startswith("🔍"):
+        tab_ai_ra_soat(k)
+        return
     if con.startswith("🧠"):
         g = ttm()
         if not len(g):
@@ -3455,6 +3570,40 @@ def trang_quan_tri() -> None:
             st.write(ai.ds_model())
         except AIH.LoiAI as e:
             st.error(str(e))
+    st.markdown("#### 🔑 Lưu API key AI (dùng chung cho cả nhóm, 1 lần)")
+    acf = ss.get("ai_cau_hinh") or {}
+    st.caption("Chỉ admin. Lưu vào kho dùng chung (shared/ai_cau_hinh.json) — cả nhóm dùng mà không cần đụng Secrets. "
+               "Có key trong Secrets thì key kho sẽ thắng (ưu tiên trước).")
+    with st.form("ai_luu_form"):
+        c = st.columns([1, 2, 1.5])
+        prov_moi = c[0].selectbox("Nhà cung cấp", ["groq", "gemini", "openrouter"],
+                                  index=["groq", "gemini", "openrouter"].index(acf.get("provider", "groq"))
+                                        if acf.get("provider", "groq") in ("groq", "gemini", "openrouter") else 0)
+        key_moi = c[1].text_input("API key", value=acf.get("api_key", ""), type="password",
+                                  help="gsk_... (Groq) · AIza... (Gemini) · sk-or-... (OpenRouter)")
+        model_moi = c[2].text_input("Model (tuỳ chọn)", value=acf.get("model", ""),
+                                    placeholder="llama-3.3-70b-versatile")
+        colb = st.columns([1, 1, 3])
+        luu_ai = colb[0].form_submit_button("💾 Lưu AI", type="primary")
+        xoa_ai = colb[1].form_submit_button("🗑 Xoá key đã lưu")
+    if luu_ai:
+        ss.ai_cau_hinh = {"provider": prov_moi, "api_key": (key_moi or "").strip(),
+                          "model": (model_moi or "").strip(),
+                          "luu_boi": ss.user, "luc_luu": C.bay_gio()}
+        ss.pop("ai_prov_tam", None); ss.pop("ai_key_tam", None); ss.pop("ai_model_tam", None)
+        luu(["shared:ai_cau_hinh"], f"[{ss.user}] Lưu AI config ({prov_moi})")
+        st.success(f"✔ Đã lưu AI {prov_moi} · model: {model_moi or '(mặc định)'}")
+        st.rerun()
+    if xoa_ai:
+        ss.ai_cau_hinh = {}
+        luu(["shared:ai_cau_hinh"], f"[{ss.user}] Xoá AI config")
+        st.success("✔ Đã xoá AI key dùng chung.")
+        st.rerun()
+    if acf.get("api_key"):
+        n = len(acf["api_key"])
+        st.caption(f"Hiện có: **{acf.get('provider')}** · key `{acf['api_key'][:6]}…{acf['api_key'][-4:]}` ({n} ký tự) · "
+                   f"model `{acf.get('model') or '(mặc định)'}` · lưu bởi {acf.get('luu_boi')} lúc {acf.get('luc_luu')}")
+
     st.markdown("#### 🆕 Tài khoản thành viên tự đăng ký")
     kho = tk_kho()
     if not kho:
