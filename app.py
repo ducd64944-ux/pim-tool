@@ -126,7 +126,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-2.9 · 2026-10-07 (thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-3.0 · 2026-10-07 (ô số liệu bấm được: mở bảng xem & sửa ngay · thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -332,6 +332,11 @@ div[data-testid="stMetric"] {min-height: 100%;}
 .stApp h1 + div, .stApp h1 span {font-size: inherit;}
 section[data-testid="stSidebar"] .stButton>button {font-size: .95rem; padding: 6px 10px;}
 section[data-testid="stSidebar"] .stButton>button p {white-space: nowrap; font-size: .95rem;}
+/* Ô số liệu = nút bấm mở bảng sửa */
+[class*="st-key-the_"]:not([class*="the_dong"]) button {min-height: 84px; justify-content: flex-start; text-align: left;
+  padding: 10px 14px; white-space: normal;}
+[class*="st-key-the_"]:not([class*="the_dong"]) button p {text-align: left; line-height: 1.35; font-size: .95rem;}
+[class*="st-key-the_"]:not([class*="the_dong"]) button p strong {font-size: 1.5rem; display: inline-block;}
 /* web-2.9: KHÔNG còn hiệu ứng rê chuột đổi kích thước/vị trí (gây giật, lag khi cuộn): chữ luôn hiện đủ, đứng yên */
 div[data-testid="stCaptionContainer"] p {font-size: .93rem; line-height: 1.55;}
 /* VÙNG đang trỏ chuột: viền xanh + bóng → biết đang làm ở khung nào */
@@ -2384,10 +2389,58 @@ def the_so(k: dict) -> None:
               "🧠"),
              ("Mất dữ liệu khi map (ô)", ds()["mat_o"] if ss.bang else 0, "🧾"),
              ("SKU không có thông số", _sku_rong() if ss.bang else 0, "🧾")]
-    for hang in (items[:6], items[6:]):
+    # Mỗi ô là NÚT: bấm → mở ngay bảng xem & sửa bên dưới (cùng bảng với QC tổng hợp); bấm lại để đóng.
+    kind_cua = {1: "khac_spec", 2: "tool_trong", 4: "thieu_model" if s.get("thieu_model", 0) else "thieu_cate",
+                5: "kich_thuoc", 6: "rong", 7: "filter_chu", 8: "sua_tay", 9: "ttm", 11: "xin_data"}
+    goi_y = {0: "Số dòng sẽ có trong file import — tạo file ở vùng ④ Xuất.",
+             3: "Ô chỉ khác ở đơn vị so với PIM cũ — an toàn, không cần sửa.",
+             10: "Giá trị CMS không map được sang cột nào — xem tab 🧾 Đối soát CMS → kết quả."}
+    dang = ss.get("the_chon")
+    for h, hang in enumerate((items[:6], items[6:])):
         cols = st.columns(6)
-        for c, (t, v, ic) in zip(cols, hang):
-            c.metric(f"{ic or ''} {t}".strip(), f"{v:,}".replace(",", ".") if isinstance(v, int) else v)
+        for n, (c, (t, v, ic)) in enumerate(zip(cols, hang)):
+            idx = h * 6 + n
+            vs = f"{v:,}".replace(",", ".") if isinstance(v, int) else v
+            if c.button(f"**{vs}**  \n{ic or ''} {t}".strip(), key=f"the_{idx}", width="stretch",
+                        type="primary" if dang == idx else "secondary"):
+                ss.the_chon = None if dang == idx else idx
+                st.rerun()
+    ss._the_kind = kind_cua.get(dang) if dang is not None else None
+    if dang is None:
+        return
+    nhan = items[dang][0]
+    with st.container(border=True):
+        top = st.columns([6, 1])
+        top[0].markdown(f"**{nhan}** — bảng xem & sửa")
+        if top[1].button("✕ Đóng", key="the_dong"):
+            ss.the_chon = None
+            st.rerun()
+        if dang in kind_cua:
+            try:
+                if kind_cua[dang] == "sua_tay":
+                    _bang_sua_tay()
+                else:
+                    khu_sua_loi(kind_cua[dang], k)
+            except Exception as e:  # noqa: BLE001  (vd trùng khoá widget với tab bên dưới)
+                st.info("Bảng này đang mở ở tab bên dưới — xem & sửa ở đó. " + type(e).__name__)
+        else:
+            st.info(goi_y.get(dang, "Mục này không có bảng sửa riêng."))
+
+
+def _bang_sua_tay() -> None:
+    if not ss.sua:
+        st.success("Chưa có ô nào sửa tay.")
+        return
+    df = pd.DataFrame([{"Bỏ": False, "Ngành": c, "SKU": sku, "Cột": m, "Giá trị sửa": v}
+                       for (c, sku, m), v in sorted(ss.sua.items())][:3000])
+    ed = st.data_editor(df, hide_index=True, width="stretch", height=min(420, 60 + 35 * len(df)),
+                        key=f"ed_sua_tay_{len(ss.sua)}", disabled=["Ngành", "SKU", "Cột", "Giá trị sửa"])
+    if st.button("↩ Bỏ các ô đã tick (về giá trị CMS)", key="bo_sua_tay_tick") and ed["Bỏ"].any():
+        for r in ed[ed["Bỏ"]].to_dict("records"):
+            ss.sua.pop((r["Ngành"], r["SKU"], r["Cột"]), None)
+        bump()
+        luu(["settings"], "Bỏ sửa tay đã tick")
+        st.rerun()
 
 
 def trang_map() -> None:
@@ -2605,7 +2658,10 @@ def tab_qc(k: dict) -> None:
         st.markdown(f"<div class='card'><span class='pill pill-{muc.lower()}'>{MUC_ICON[muc]}</span> "
                     f"<span class='card-h'>{ten}</span> · <b>{so:,}</b><br><span class='card-s'>{y} — {g}</span></div>",
                     unsafe_allow_html=True)
-        khu_sua_loi(kind, k)
+        if ss.get("_the_kind") == kind:
+            st.info("👆 Bảng này đang mở ở ô số liệu phía trên — xem & sửa ở đó.")
+        else:
+            khu_sua_loi(kind, k)
     else:
         st.info("Chưa chọn dòng nào. Bấm 1 dòng ở bảng trên để sửa; hoặc dùng ⚡ Sửa nhanh hàng loạt bên dưới.")
     acts = {x[5] for x in q if x[5]}
