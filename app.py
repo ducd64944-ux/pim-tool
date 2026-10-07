@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-3.6 · 2026-10-07"
+APP_VERSION = "web-3.7 · 2026-10-07"
 ss = st.session_state
 
 
@@ -194,11 +194,15 @@ _CSS = """<style>
 html, body, [class*="css"], .stApp {font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
 #MainMenu, footer, .viewerBadge_container__r5tak, .viewerBadge_link__qRIco,
 div[data-testid="manage-app-button"], .stDeployButton,
-a[href*="streamlit.io"], a[href*="streamlit.app"],
+a[href*="streamlit.io"], a[href*="streamlit.app"], a[href*="streamlit.cloud"],
+a[href*="github.com"][target="_blank"][style*="fixed"],
 div[class*="viewerBadge"], span[class*="viewerBadge"],
 iframe[title="badge"], .st-emotion-cache-h4xjwg,
 div[data-testid="manage-app-button"] ~ div,
-div.stActionButton {display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; overflow: hidden !important;}
+div.stActionButton, ._profileContainer_gzau3_53,
+div[class*="_profileContainer"], a[class*="_profileContainer"],
+div[class*="StatusWidget"], div[class*="_hostBadge"],
+a[class*="_hostBadge"] {display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; overflow: hidden !important; position: absolute !important; left: -9999px !important;}
 footer, footer * {visibility: hidden !important; display: none !important; height: 0 !important;}
 /* Giữ header (chứa chỉ báo "Đang chạy…" khi bấm) nhưng trong suốt; ẩn nút Deploy/menu */
 header[data-testid="stHeader"] {background: transparent; height: 2.4rem;}
@@ -455,6 +459,7 @@ var d=new Date();var h=d.getUTCHours()+7;if(h>=24)h-=24;var m=d.getUTCMinutes();
 var ap=h>=12?'PM':'AM';var h12=h%12||12;
 t.textContent='🕐 '+h12+':'+(m<10?'0':'')+m+' '+ap;};
 u();setInterval(u,30000);})();
+(function(){function h(){document.querySelectorAll('a').forEach(function(a){var t=(a.textContent||'').toLowerCase();var hr=a.href||'';if((t.includes('hosted with streamlit')||t.includes('created by')||hr.includes('streamlit.io/cloud')||hr.includes('share.streamlit.io'))&&!a.closest('.stApp .block-container')){a.style.display='none';a.style.visibility='hidden';}});};h();setInterval(h,3000);})();
 </script>"""
 st.markdown(re.sub(r"\n\s*\n", "\n", _CSS), unsafe_allow_html=True)
 
