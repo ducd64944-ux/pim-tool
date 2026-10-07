@@ -337,6 +337,8 @@ section[data-testid="stSidebar"] .stButton>button p {white-space: nowrap; font-s
   padding: 10px 14px; white-space: normal;}
 [class*="st-key-the_"]:not([class*="the_dong"]) button p {text-align: left; line-height: 1.35; font-size: .95rem;}
 [class*="st-key-the_"]:not([class*="the_dong"]) button p strong {font-size: 1.5rem; display: inline-block;}
+/* Nút XEM bự */
+[class*="st-key-xem_"] button {min-height: 62px; font-size: 1.15rem; font-weight: 700;}
 /* web-2.9: KHÔNG còn hiệu ứng rê chuột đổi kích thước/vị trí (gây giật, lag khi cuộn): chữ luôn hiện đủ, đứng yên */
 div[data-testid="stCaptionContainer"] p {font-size: .93rem; line-height: 1.55;}
 /* VÙNG đang trỏ chuột: viền xanh + bóng → biết đang làm ở khung nào */
@@ -2476,7 +2478,7 @@ def trang_map() -> None:
     k = kq()
     the_so(k)
     c = st.columns([1.3, 1.3, 3])
-    if c[0].button("🪄 Ô tool trống → lấy PIM cũ", width="stretch",
+    if c[0].button("✨ Ô tool trống → lấy PIM cũ", width="stretch",
                    help="Lấp các ô tool để trống mà PIM đang có giá trị (để import không làm mất dữ liệu web)"):
         n = 0
         for r in k["khac"]:
@@ -2680,7 +2682,7 @@ def tab_qc(k: dict) -> None:
             with cc[i % 4]:
                 nut_xin_data("qc_xd")
             i += 1
-        if "lay_pim" in acts and nut("🪄 Ô tool trống → lấy PIM cũ", "lay_pim"):
+        if "lay_pim" in acts and nut("✨ Ô tool trống → lấy PIM cũ", "lay_pim"):
             for r in k["khac"]:
                 if r["trang_thai"] == C.TRANG_THAI_TOOL_TRONG and r["pim_cu"]:
                     dat_sua(r["cate"], r["sku"], r["ma"], r["pim_cu"], r["goc"])
@@ -2784,7 +2786,7 @@ def khu_sua_loi(kind: str, k: dict) -> None:
     elif kind == "tool_trong":
         v = khac_df(k)
         v = v[v.trang_thai == C.TRANG_THAI_TOOL_TRONG] if len(v) else v
-        if len(v) and st.button("🪄 Lấy PIM cũ cho tất cả ô này", key="sl_tt_all"):
+        if len(v) and st.button("✨ Lấy PIM cũ cho tất cả ô này", key="sl_tt_all"):
             for r in v.itertuples(index=False):
                 if r.pim_cu:
                     dat_sua(r.cate, r.sku, r.ma, r.pim_cu, r.goc)
@@ -2828,16 +2830,46 @@ def khac_df(k: dict) -> pd.DataFrame:
 
 
 def _loc_roi_grid(v: pd.DataFrame, key: str) -> None:
+    """① Bảng TẤT CẢ mã TSKT (50 hay 300 mã đều hiện đủ, cuộn được) để tick & áp cho cả mã; ② nút XEM bự → bảng chi tiết."""
     if not len(v):
         st.success("✔ Không còn ô nào thuộc nhóm này.")
         return
-    tim = st.text_input("🔎 Lọc theo SKU / giá trị", key=f"{key}_tim")
+    gm = (v.groupby("ma").agg(so=("sku", "size"), ten=("ten", "first")).reset_index()
+          .sort_values(["so", "ma"], ascending=[False, True]).reset_index(drop=True))
+    st.markdown(f"**{len(gm):,} mã TSKT · {len(v):,} ô** — tick mã cần xử lý:")
+    tat = st.checkbox("Chọn tất cả mã", key=f"{key}_all")
+    dfm = pd.DataFrame({"Chọn": tat, "Mã TSKT": gm.ma, "Tên": gm.ten, "Số ô": gm.so})
+    em = st.data_editor(dfm, hide_index=True, width="stretch", height=min(320, 60 + 35 * len(dfm)),
+                        key=f"{key}_ma_{ss.ver}_{int(tat)}", disabled=["Mã TSKT", "Tên", "Số ô"],
+                        column_config={"Chọn": st.column_config.CheckboxColumn(width="small")})
+    ma_chon = list(em.loc[em["Chọn"], "Mã TSKT"])
+    n_ap = int(v.ma.isin(ma_chon).sum())
+    if st.button(f"✨ Dùng giá trị PIM cũ cho {len(ma_chon)} mã đã tick ({n_ap:,} ô)", type="primary",
+                 disabled=not ma_chon, key=f"{key}_ap_ma"):
+        for r in v[v.ma.isin(ma_chon)].itertuples(index=False):
+            if r.pim_cu:
+                dat_sua(r.cate, r.sku, r.ma, r.pim_cu, r.goc)
+        bump()
+        luu(["settings"], f"Dùng PIM cũ cho {len(ma_chon)} mã TSKT ({n_ap} ô)")
+        st.rerun()
+    st.caption("Sửa ở đây = ghi vào «Ô sửa tay» và đi thẳng vào file import khi xuất (giống sửa trong bảng chi tiết).")
+    xem = bool(ss.get(f"{key}_xem"))
+    if st.button("👁 ĐÓNG BẢNG CHI TIẾT" if xem else "👁 XEM CHI TIẾT TỪNG Ô (sửa riêng từng ô)", width="stretch",
+                 type="secondary" if xem else "primary", key=f"xem_{key}"):
+        ss[f"{key}_xem"] = not xem
+        st.rerun()
+    if not xem:
+        return
+    tim = st.text_input("Lọc theo SKU / giá trị (gõ rồi Enter)", key=f"{key}_tim",
+                        placeholder="🔎 gõ SKU hoặc giá trị…")
+    d = v[v.ma.isin(ma_chon)] if ma_chon else v
     if tim:
         t = tim.lower()
-        v = v[v.sku.str.lower().str.contains(t, regex=False) | v.tool_moi.str.lower().str.contains(t, regex=False)
-              | v.pim_cu.str.lower().str.contains(t, regex=False)]
-    st.caption(f"{len(v):,} ô" + (" — hiện 1.500 ô đầu" if len(v) > 1500 else ""))
-    _grid_khac(v.head(1500), key)
+        d = d[d.sku.str.lower().str.contains(t, regex=False) | d.tool_moi.str.lower().str.contains(t, regex=False)
+              | d.pim_cu.str.lower().str.contains(t, regex=False)]
+    st.caption(f"{len(d):,} ô" + (" — hiện 1.500 ô đầu, lọc thêm để xem hết" if len(d) > 1500 else "") +
+               ("" if ma_chon else " (chưa tick mã nào → hiện tất cả mã)"))
+    _grid_khac(d.head(1500), key)
 
 
 def _sua_import_thieu(cot: str) -> None:
@@ -3199,15 +3231,33 @@ def ngu_canh_lo(k: dict) -> str:
 
 def _bang_ap_dung(df: pd.DataFrame, key: str, cot_goi_y: str = "Gợi ý") -> None:
     """Bảng có cột 'Áp dụng' + gợi ý sửa được -> nút áp dụng thành sửa tay."""
+    # Lọc theo MÃ (liệt kê đủ 50/300 mã kèm số ô) + gõ tìm; "áp dụng tất cả" = tất cả dòng ĐANG HIỆN
+    if "Mã TSKT" in df.columns and len(df):
+        dm = df["Mã TSKT"].value_counts()
+        opts = [f"Tất cả {len(dm)} mã ({len(df):,} ô)"] + [f"{m} — {n:,} ô" for m, n in dm.items()]
+        cf = st.columns([3, 2])
+        pick = cf[0].selectbox("Lọc theo mã TSKT", opts, key=f"{key}_ma_{ss.ver}")
+        tim = cf[1].text_input("Lọc SKU / giá trị (gõ rồi Enter)", key=f"{key}_tim", placeholder="🔎 gõ để lọc…")
+        if pick != opts[0]:
+            df = df[df["Mã TSKT"] == pick.rsplit(" — ", 1)[0]]
+        if tim:
+            t = tim.lower()
+            mk = pd.Series(False, index=df.index)
+            for cc_ in ("SKU", "Giá trị hiện tại", "Gợi ý"):
+                if cc_ in df.columns:
+                    mk |= df[cc_].astype(str).str.lower().str.contains(t, regex=False)
+            df = df[mk]
+        df = df.reset_index(drop=True)
+        st.caption(f"Đang hiện {len(df):,} dòng.")
     hien = df.copy()
     hien.insert(0, "Áp dụng", False)
-    ed = st.data_editor(hien, hide_index=True, height=400, key=f"{key}_{ss.ver}",
+    ed = st.data_editor(hien, hide_index=True, height=400, key=f"{key}_{ss.ver}_{len(df)}",
                         disabled=[c for c in hien.columns if c not in ("Áp dụng", cot_goi_y)],
                         column_config={"Áp dụng": st.column_config.CheckboxColumn(width="small"), "_cate": None,
                                        cot_goi_y: st.column_config.TextColumn(width="medium"),
                                        "AI": st.column_config.TextColumn("🤖 AI nhận xét", width="medium")})
     c = st.columns([1, 1, 3])
-    tat_ca = c[1].button("✔ Áp dụng TẤT CẢ dòng có gợi ý", key=f"{key}_all")
+    tat_ca = c[1].button(f"✔ Áp dụng TẤT CẢ {len(df):,} dòng đang hiện", key=f"{key}_all")
     if c[0].button("✔ Áp dụng dòng đã tick", type="primary", key=f"{key}_ap") or tat_ca:
         n = 0
         for i in range(len(ed)):
@@ -4121,7 +4171,7 @@ def tab_quy_tac(sua_duoc: bool) -> None:
         ss.quy_tac_kt = qt
         luu(["shared:quy_tac_kt"], f"Lưu quy tắc kiểm tra ngành {cate}")
         st.rerun()
-    if cate != "*" and cate in ss.bang and c[1].button("🪄 Gợi ý từ dữ liệu lô", disabled=not sua_duoc):
+    if cate != "*" and cate in ss.bang and c[1].button("✨ Gợi ý từ dữ liệu lô", disabled=not sua_duoc):
         ss.qt_goi_y = C.goi_y_quy_tac(ss.bang, cate)
     gy = ss.get("qt_goi_y")
     if gy and cate in ss.bang:
