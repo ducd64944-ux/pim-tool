@@ -25,7 +25,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-2.1 · 2026-10-07 (QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.2 · 2026-10-07 (key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -208,7 +208,7 @@ def tk_secrets() -> dict:
     try:
         u = st.secrets.get("users")  # type: ignore[union-attr]
         if u:
-            return {k: dict(v) for k, v in u.items()}
+            return {k: dict(v) for k, v in u.items() if hasattr(v, "items")}  # bỏ qua dòng lạc (vd AI_API_KEY)
     except Exception:  # noqa: BLE001
         pass
     if os.environ.get("PIM_DEV") == "1":
@@ -824,14 +824,96 @@ def bang_chon_nganh(key: str) -> list:
     return [c for c, v in moi.items() if v]
 
 
+_AI_PROV = ("groq", "gemini", "openrouter")
+
+
+def _sach(v) -> str:
+    return str(v or "").strip().strip('"').strip("'").strip()
+
+
+def _doan_prov(key: str) -> str:
+    """Đoán nhà cung cấp theo đầu key (tránh khai sai AI_PROVIDER)."""
+    if key.startswith("gsk_"):
+        return "groq"
+    if key.startswith("AIza"):
+        return "gemini"
+    if key.startswith("sk-or-"):
+        return "openrouter"
+    return ""
+
+
+def ai_tu_secrets() -> dict:
+    """Đọc cấu hình AI từ Secrets — nhập 1 lần, cả nhóm dùng, đăng xuất không mất. Chấp nhận các kiểu khai:
+    AI_PROVIDER/AI_API_KEY/AI_MODEL · GROQ_API_KEY/GEMINI_API_KEY/OPENROUTER_API_KEY · bảng [ai] provider/api_key/model
+    (chữ hoa/thường đều được)."""
+    bang = {}
+    try:
+        for ten in ("ai", "AI"):
+            if ten in st.secrets and hasattr(st.secrets[ten], "get"):
+                bang = {str(k).lower(): v for k, v in dict(st.secrets[ten]).items()}
+                break
+    except Exception:  # noqa: BLE001 - chưa có secrets.toml
+        bang = {}
+
+    # Hay gặp: dán AI_API_KEY bên dưới 1 bảng [users.xxx] → TOML xếp nó vào bảng đó. Quét cả các bảng con.
+    long = {}
+    try:
+        def _quet(d, sau=0):
+            for k_, v_ in dict(d).items():
+                if hasattr(v_, "items") and sau < 3:
+                    _quet(v_, sau + 1)
+                elif sau and isinstance(v_, str) and str(k_).upper() in (
+                        "AI_PROVIDER", "AI_API_KEY", "AI_MODEL", "AI_BASE_URL", "GROQ_API_KEY", "GEMINI_API_KEY",
+                        "OPENROUTER_API_KEY"):
+                    long.setdefault(str(k_).upper(), v_)
+        _quet(st.secrets)
+    except Exception:  # noqa: BLE001
+        pass
+
+    def lay(*ten):
+        for t in ten:
+            v = _sach(sec(t, "") or sec(t.lower(), "") or long.get(t.upper(), ""))
+            if v:
+                return v
+        return ""
+    prov = (lay("AI_PROVIDER") or _sach(bang.get("provider"))).lower()
+    key = lay("AI_API_KEY") or _sach(bang.get("api_key") or bang.get("key"))
+    if not key:
+        for p in ([prov] if prov in _AI_PROV else []) + [p for p in _AI_PROV if p != prov]:
+            key = lay(f"{p.upper()}_API_KEY") or _sach(bang.get(f"{p}_api_key"))
+            if key:
+                prov = prov if prov in _AI_PROV and lay(f"{prov.upper()}_API_KEY") == key else p
+                break
+    prov = _doan_prov(key) or (prov if prov in _AI_PROV else "groq")
+    return {"provider": prov, "api_key": key, "model": lay("AI_MODEL") or _sach(bang.get("model")),
+            "base_url": lay("AI_BASE_URL") or _sach(bang.get("base_url"))}
+
+
 def tao_ai() -> AIH.AI:
-    acf = ss.get("ai_cau_hinh") or {}
-    prov = ss.get("ai_prov_tam") or acf.get("provider") or sec("AI_PROVIDER", "groq")
-    key = (ss.get("ai_key_tam") or acf.get("api_key")
-           or sec("AI_API_KEY", "") or sec(f"{str(prov).upper()}_API_KEY", ""))
-    model = ss.get("ai_model_tam") or acf.get("model") or sec("AI_MODEL", "")
-    base = acf.get("base_url") or sec("AI_BASE_URL", "")
+    # Ưu tiên: key dán tạm trong phiên → Secrets (cố định cho cả nhóm) → bản lưu cũ trên kho (nếu có)
+    scf = ai_tu_secrets()
+    acf = scf if scf.get("api_key") else (ss.get("ai_cau_hinh") or {})
+    prov = ss.get("ai_prov_tam") or acf.get("provider") or "groq"
+    key = ss.get("ai_key_tam") or acf.get("api_key") or ""
+    model = ss.get("ai_model_tam") or acf.get("model") or ""
+    base = acf.get("base_url") or ""
     return AIH.AI(prov, key, model, base)
+
+
+_MAU_SECRETS_AI = 'AI_PROVIDER = "groq"\nAI_API_KEY = "gsk_...dán key vào đây..."\n# AI_MODEL = "openai/gpt-oss-120b"   # tuỳ chọn'
+
+
+def huong_dan_secrets_ai() -> None:
+    scf = ai_tu_secrets()
+    if scf.get("api_key"):
+        k = scf["api_key"]
+        st.success(f"🔑 Đang dùng key AI trong **Secrets**: {scf['provider']} · `{k[:6]}…{k[-4:]}` ({len(k)} ký tự) · "
+                   f"model `{scf.get('model') or '(mặc định)'}` — cả nhóm dùng chung, đăng xuất không mất.")
+    else:
+        st.warning("Chưa có key AI trong Secrets. Admin vào **Streamlit Cloud → app → ⋮ → Settings → Secrets**, "
+                   "dán 2 dòng dưới (ngoài mọi bảng [..], đặt ở đầu file) → **Save changes** → đợi app tự khởi động lại. "
+                   "Nhập 1 lần, cả nhóm dùng luôn.")
+        st.code(_MAU_SECRETS_AI, language="toml")
 
 
 def ten_sp(sku: str) -> str:
@@ -2852,8 +2934,9 @@ def tab_ai(k: dict) -> None:
         return
     ai = tao_ai()
     with st.expander(f"⚙️ AI: {ai.mo_ta}" + ("" if ai.co_san else " — CHƯA BẬT"), expanded=not ai.co_san):
-        st.caption("AI miễn phí, chỉ gửi thông số sản phẩm (không có dữ liệu cá nhân). Admin cấu hình cố định trong "
-                   "Secrets (AI_PROVIDER, AI_API_KEY, AI_MODEL); hoặc dán key tạm cho riêng phiên này:")
+        st.caption("AI miễn phí, chỉ gửi thông số sản phẩm (không có dữ liệu cá nhân).")
+        huong_dan_secrets_ai()
+        st.caption("Hoặc dán key tạm cho riêng phiên này (thử key, đăng xuất là mất):")
         c = st.columns([1, 2, 2])
         prov = c[0].selectbox("Nhà cung cấp", list(AIH.PRESET), format_func=lambda p: AIH.PRESET[p]["ten"],
                               index=list(AIH.PRESET).index(ai.provider))
@@ -4192,39 +4275,14 @@ def trang_quan_tri() -> None:
             st.write(ai.ds_model())
         except AIH.LoiAI as e:
             st.error(str(e))
-    st.markdown("#### 🔑 Lưu API key AI (dùng chung cho cả nhóm, 1 lần)")
-    acf = ss.get("ai_cau_hinh") or {}
-    st.caption("Chỉ admin. Lưu vào kho dùng chung (shared/ai_cau_hinh.json) — cả nhóm dùng mà không cần đụng Secrets. "
-               "Có key trong Secrets thì key kho sẽ thắng (ưu tiên trước).")
-    with st.form("ai_luu_form"):
-        c = st.columns([1, 2, 1.5])
-        prov_moi = c[0].selectbox("Nhà cung cấp", ["groq", "gemini", "openrouter"],
-                                  index=["groq", "gemini", "openrouter"].index(acf.get("provider", "groq"))
-                                        if acf.get("provider", "groq") in ("groq", "gemini", "openrouter") else 0)
-        key_moi = c[1].text_input("API key", value=acf.get("api_key", ""), type="password",
-                                  help="gsk_... (Groq) · AIza... (Gemini) · sk-or-... (OpenRouter)")
-        model_moi = c[2].text_input("Model (tuỳ chọn)", value=acf.get("model", ""),
-                                    placeholder="llama-3.3-70b-versatile")
-        colb = st.columns([1, 1, 3])
-        luu_ai = colb[0].form_submit_button("💾 Lưu AI", type="primary")
-        xoa_ai = colb[1].form_submit_button("🗑 Xoá key đã lưu")
-    if luu_ai:
-        ss.ai_cau_hinh = {"provider": prov_moi, "api_key": (key_moi or "").strip(),
-                          "model": (model_moi or "").strip(),
-                          "luu_boi": ss.user, "luc_luu": C.bay_gio()}
-        ss.pop("ai_prov_tam", None); ss.pop("ai_key_tam", None); ss.pop("ai_model_tam", None)
-        luu(["shared:ai_cau_hinh"], f"[{ss.user}] Lưu AI config ({prov_moi})")
-        st.success(f"✔ Đã lưu AI {prov_moi} · model: {model_moi or '(mặc định)'}")
-        st.rerun()
-    if xoa_ai:
+    st.markdown("#### 🔑 API key AI (dùng chung cả nhóm, nhập 1 lần trong Secrets)")
+    huong_dan_secrets_ai()
+    st.caption("Key để trong Secrets của Streamlit (không lưu lên kho dữ liệu vì kho đang Public — tránh lộ key và "
+               "nhà cung cấp tự thu hồi). Đổi key: sửa dòng AI_API_KEY trong Secrets → Save.")
+    if (ss.get("ai_cau_hinh") or {}).get("api_key") and st.button("🗑 Xoá key cũ lưu trên kho"):
         ss.ai_cau_hinh = {}
-        luu(["shared:ai_cau_hinh"], f"[{ss.user}] Xoá AI config")
-        st.success("✔ Đã xoá AI key dùng chung.")
-        st.rerun()
-    if acf.get("api_key"):
-        n = len(acf["api_key"])
-        st.caption(f"Hiện có: **{acf.get('provider')}** · key `{acf['api_key'][:6]}…{acf['api_key'][-4:]}` ({n} ký tự) · "
-                   f"model `{acf.get('model') or '(mặc định)'}` · lưu bởi {acf.get('luu_boi')} lúc {acf.get('luc_luu')}")
+        if luu(["shared:ai_cau_hinh"], f"[{ss.user}] Xoá AI config"):
+            st.rerun()
 
     st.markdown("#### 🆕 Tài khoản thành viên tự đăng ký")
     kho = tk_kho()
