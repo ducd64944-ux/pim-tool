@@ -16,16 +16,36 @@ from collections import Counter
 
 import pandas as pd
 import streamlit as st
+import base64 as _b64
+from pathlib import Path as _Path
 
-st.set_page_config(page_title="PIM Tool — CMS → PIM", page_icon="🧩", layout="wide",
+_ASSETS = _Path(__file__).parent / "assets"
+_LOGO = _ASSETS / "logo.png"
+_FAVICON = _ASSETS / "favicon.png"
+try:
+    LOGO_B64 = _b64.b64encode(_LOGO.read_bytes()).decode()
+except Exception:  # noqa: BLE001 - thiếu file logo thì dùng icon chữ
+    LOGO_B64 = ""
+
+
+def logo_img(px: int) -> str:
+    return (f'<img src="data:image/png;base64,{LOGO_B64}" width="{px}" height="{px}" '
+            f'style="display:block;border-radius:50%" alt="logo">') if LOGO_B64 else "🧩"
+
+
+st.set_page_config(page_title="PIM Tool — CMS → PIM", page_icon=str(_FAVICON) if _FAVICON.exists() else "🧩",
+                   layout="wide",
                    menu_items={"Get Help": None, "Report a bug": None, "About": None})
+
+if _LOGO.exists():
+    st.logo(str(_LOGO), size="large", icon_image=str(_LOGO))
 
 import ai_helper as AIH  # noqa: E402
 import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-2.2 · 2026-10-07 (key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.3 · 2026-10-07 (logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -59,7 +79,8 @@ hr {border: 0; border-top: 1px solid var(--line); margin: 1rem 0;}
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   box-shadow: 0 2px 8px rgba(15,23,42,.15);}
 .brand-bar .logo {font-weight: 800; font-size: 1.15rem; letter-spacing:-.2px; display:flex; gap:10px; align-items:center;}
-.brand-bar .logo .dot {width:10px; height:10px; border-radius:50%; background:#60a5fa; box-shadow:0 0 10px #60a5fa;}
+.brand-bar .logo .mark {display:inline-flex; width:34px; height:34px; border-radius:50%; background:#fff;
+  box-shadow:0 0 0 2px rgba(255,255,255,.35);}
 .brand-bar .meta {font-size: .84rem; display:flex; gap:14px; color:#fff;}
 .brand-bar .meta .chip {background: rgba(255,255,255,.2); color:#fff; padding: 3px 10px; border-radius: 999px; font-weight:500;}
 /* Metric tiles */
@@ -161,8 +182,8 @@ div[data-testid="stButtonGroup"] button[aria-checked="false"]:hover {background:
   color: var(--brand); border-color: var(--brand-2);}
 /* Trang đăng nhập */
 .login-head {text-align: center; margin: 6vh 0 18px;}
-.login-logo {width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 14px; font-size: 28px; line-height: 56px;
-  background: linear-gradient(135deg, #0f172a, #1e40af); box-shadow: 0 6px 18px rgba(30,64,175,.25);}
+.login-logo {width: 72px; height: 72px; margin: 0 auto 12px; border-radius: 50%; font-size: 32px; line-height: 72px;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(59,130,246,.35);}
 .login-title {font-size: 1.5rem; font-weight: 800; color: var(--ink); letter-spacing: -.3px;}
 .login-sub {font-size: .88rem; color: var(--ink-3); margin-top: 2px;}
 div[data-testid="stForm"] {background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
@@ -328,7 +349,7 @@ def dang_nhap() -> None:
     _, giua, _ = st.columns([1, 1.25, 1])
     with giua:
         st.markdown(
-            '<div class="login-head"><div class="login-logo">🧩</div>'
+            f'<div class="login-head"><div class="login-logo">{logo_img(72)}</div>'
             '<div class="login-title">PIM Tool</div>'
             '<div class="login-sub">Chuyển thông số CMS → PIM · TGDĐ / ĐMX</div></div>',
             unsafe_allow_html=True)
@@ -949,7 +970,7 @@ def so_cho_duyet() -> int:
 
 def thanh_ben() -> None:
     with st.sidebar:
-        st.markdown(f"### 🧩 PIM Tool\n👤 **{ss.ten}** (`{ss.user}`){' · 🛡️ admin' if ss.admin else ''}")
+        st.markdown(f"### PIM Tool\n👤 **{ss.ten}** (`{ss.user}`){' · 🛡️ admin' if ss.admin else ''}")
         if ss.admin:
             tk = list(ds_tai_khoan())
             chon = st.selectbox("Workspace đang xem", tk, index=tk.index(ss.ws) if ss.ws in tk else 0,
@@ -4417,7 +4438,7 @@ try:
     _ws = f"Workspace: <b>{ss.ws}</b>"
     st.markdown(
         f'<div class="brand-bar">'
-        f'<div class="logo"><span class="dot"></span>PIM Tool <span style="opacity:.85;font-weight:500;font-size:.9rem">· CMS → PIM</span></div>'
+        f'<div class="logo"><span class="mark">{logo_img(34)}</span>PIM Tool <span style="opacity:.85;font-weight:500;font-size:.9rem">· CMS → PIM</span></div>'
         f'<div class="meta"><span class="chip">👤 {ss.ten}{_ad}</span>'
         f'<span class="chip">{_ws}</span></div>'
         f'</div>', unsafe_allow_html=True)
