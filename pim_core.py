@@ -1685,6 +1685,7 @@ def kiem_chung_sku(bang: Dict[str, dict], data_sp: pd.DataFrame, imp: pd.DataFra
     nl = {r.sku: r for r in imp.drop_duplicates("sku").itertuples(index=False)} if imp is not None and len(imp) else {}
     for cate, b in bang.items():
         tmc, fmc = tm.get(cate, {}), fm.get(cate, {})
+        fmc_cot = set(fmc.values())
         for r in b["rows"]:
             for _pid, val in gia_tri_sku.get(r["sku"], ()):
                 sku_cua_gt[(cate, val)].add(r["sku"])
@@ -1716,7 +1717,7 @@ def kiem_chung_sku(bang: Dict[str, dict], data_sp: pd.DataFrame, imp: pd.DataFra
                     tk[KC_SUA_QUY_TAC] += 1
                     out.append([KC_MUC[KC_SUA_QUY_TAC], KC_SUA_QUY_TAC, cate, sku, ma, v, f"CMS gốc: {g}"])
                     continue
-                if la_cot_filter(ma):
+                if la_cot_filter(ma) or ma in fmc_cot:
                     du_kien = set()
                     for pid, val in nguon:
                         if fmc.get(pid) == ma:
@@ -1731,7 +1732,11 @@ def kiem_chung_sku(bang: Dict[str, dict], data_sp: pd.DataFrame, imp: pd.DataFra
                     else:
                         tk["khop"] += 1
                     continue
-                dung_cot = {val for pid, val in nguon if tmc.get(pid) == ma}
+                dung_list = [val for pid, val in nguon if tmc.get(pid) == ma]
+                if v == SEP_TSKT.join(dict.fromkeys(x for x in dung_list if x)):
+                    tk["khop"] += 1  # đúng y hệt cách chay_map ghép (kể cả giá trị CMS có sẵn dấu "|")
+                    continue
+                dung_cot = set(dung_list) | {x for val in dung_list for x in str(val).split(SEP_TSKT)}
                 for phan in [x for x in v.split(SEP_TSKT) if x]:
                     if phan in dung_cot:
                         tk["khop"] += 1
@@ -1765,10 +1770,10 @@ def kiem_tra_nhat_quan(cau_hinh: Dict[str, dict], data_sp: Optional[pd.DataFrame
     chi_cate=None: kiểm các ngành có trong DATA SP (+ ngành có cấu hình nếu DATA SP trống)."""
     quy_doi = quy_doi or {}
     sp = data_sp if data_sp is not None and len(data_sp) else pd.DataFrame(columns=COT_DATA_SP)
-    cate_sp = sorted(set(sp.CATEGORYID) - {""}) if len(sp) else []
+    cate_sp = sorted({chuan_hoa_id(x) for x in sp.CATEGORYID} - {""}) if len(sp) else []
     if chi_cate is None:
         chi_cate = cate_sp or sorted(cau_hinh)
-    chi_cate = [c for c in dict.fromkeys(chi_cate) if c]
+    chi_cate = [c for c in dict.fromkeys(chuan_hoa_id(x) for x in chi_cate) if c]
     tm_rows = map_tskt[map_tskt.cate.isin(chi_cate)] if len(map_tskt) else map_tskt
     fm_rows = map_filter[map_filter.cate.isin(chi_cate)] if len(map_filter) else map_filter
     opt_ds = opt.get("opt_ds", {}) if opt else {}
@@ -1830,7 +1835,7 @@ def kiem_tra_nhat_quan(cau_hinh: Dict[str, dict], data_sp: Optional[pd.DataFrame
                      "; ".join(f"{pid}: dùng {dung[pid]} (bỏ {', '.join(x for x in v if x != dung[pid])})"
                                for pid, v in list(trung.items())[:8]))
         # I: sai loại cột
-        sai_f = sorted({m for m in fm.values() if m and not la_cot_filter(m)})
+        sai_f = sorted({m for m in fm.values() if m and not la_cot_filter(m) and not opt_ds.get(m)})
         if sai_f:
             them("CAO", cate, "Mapping FILTER", "Mapping FILTER trỏ tới cột KHÔNG phải FILTER", len(sai_f),
                  ", ".join(sai_f[:10]))

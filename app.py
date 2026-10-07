@@ -37,6 +37,33 @@ st.set_page_config(page_title="PIM Tool — CMS → PIM", page_icon=str(_FAVICON
                    layout="wide",
                    menu_items={"Get Help": None, "Report a bug": None, "About": None})
 
+import pandas as _pd_de
+
+_goc_data_editor = st.data_editor
+
+
+def _data_editor_an_toan(data, *a, **kw):
+    """Bảng rỗng: pandas để cột kiểu số (float) → cột chữ/chọn báo lỗi StreamlitAPIException. Đổi kiểu cho khớp."""
+    try:
+        if isinstance(data, _pd_de.DataFrame) and len(data) == 0:
+            data = data.copy()
+            cc = kw.get("column_config") or {}
+            for c in data.columns:
+                cf = cc.get(c)
+                t = (cf.get("type_config") or {}).get("type") if isinstance(cf, dict) else None
+                if t == "checkbox":
+                    data[c] = data[c].astype(bool)
+                elif t in ("number", "progress"):
+                    data[c] = _pd_de.to_numeric(data[c], errors="coerce").astype(float)
+                else:
+                    data[c] = data[c].astype(object)
+    except Exception:  # noqa: BLE001
+        pass
+    return _goc_data_editor(data, *a, **kw)
+
+
+st.data_editor = _data_editor_an_toan
+
 if _LOGO.exists():
     st.logo(str(_LOGO), size="large", icon_image=str(_LOGO))
 
@@ -45,7 +72,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-2.4 · 2026-10-07 (giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.5 · 2026-10-07 (sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -287,6 +314,43 @@ div[data-testid="stMetricLabel"] p {font-size: .9rem !important;}
 .status-strip {font-size: .95rem;}
 /* Thông báo rõ: chữ đậm vừa, cỡ chuẩn */
 div[data-testid="stAlert"] p {font-size: 1rem; line-height: 1.55;}
+/* ===== Sửa sau rà soát (web-2.5) ===== */
+/* Ô LỖI / CẢNH BÁO / THÔNG BÁO: luôn hiện ĐỦ chữ, không thu gọn (không được bỏ sót nội dung lỗi) */
+div[data-testid="stAlertContainer"], div[data-testid="stAlertContainer"]:hover {max-height: none !important;
+  overflow: visible !important; -webkit-mask-image: none !important; mask-image: none !important; box-shadow: none !important;}
+/* Thanh bên: hiện đủ chữ */
+section[data-testid="stSidebar"] div[data-testid="stCaptionContainer"] {max-height: none !important;
+  overflow: visible !important; -webkit-mask-image: none !important; mask-image: none !important;}
+/* Màn hình cảm ứng (không rê chuột được): hiện đủ chữ luôn */
+@media (hover: none), (pointer: coarse) {
+  div[data-testid="stCaptionContainer"], .buoc {max-height: none !important; overflow: visible !important;
+    -webkit-mask-image: none !important; mask-image: none !important;}
+}
+div[data-testid="stCaptionContainer"] {margin-bottom: .35rem;}
+div[data-testid="stCaptionContainer"]:hover > * {pointer-events: none;}
+/* Nút mở lại thanh bên (nằm trong toolbar đang ẩn) — phải luôn thấy, nhất là trên điện thoại */
+div[data-testid="stToolbar"] [data-testid="stExpandSidebarButton"],
+div[data-testid="stToolbar"] [data-testid="stExpandSidebarButton"] * {visibility: visible !important;}
+/* Chữ trên nút không bị cắt "…": cho xuống dòng */
+.stButton>button p, .stDownloadButton>button p, .stFormSubmitButton>button p,
+section[data-testid="stSidebar"] .stButton>button p {white-space: normal !important; overflow: visible !important;
+  text-overflow: clip !important; line-height: 1.25;}
+/* Tab: bỏ mũi tên cuộn (đã xuống dòng), tab dài được xuống dòng, viền rõ hơn */
+[data-testid="stTabsScrollLeft"], [data-testid="stTabsScrollRight"] {display: none !important;}
+div[data-testid="stTab"] {max-width: 100%; border-color: #94a3b8 !important;}
+div[data-testid="stTab"][aria-selected="true"] {border-color: var(--brand) !important;}
+div[data-testid="stTab"] p {white-space: normal !important;}
+div[data-testid="stTab"]:focus-visible {outline-color: #1d4ed8 !important;}
+button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;}
+section[data-testid="stFileUploaderDropzone"] {border-color: #64748b;}
+@media (max-width: 640px) {
+  div[data-testid="stTab"] {min-height: 36px; padding: 5px 12px !important;}
+  div[data-testid="stTab"] p {font-size: .88rem !important;}
+  div[data-testid="stTabs"] [role="tablist"] {gap: 6px;}
+  .brand-bar, .brand-bar .meta {flex-wrap: wrap;}
+  .brand-bar .meta .chip {white-space: nowrap;}
+}
 </style>"""
 st.markdown(re.sub(r"\n\s*\n", "\n", _CSS), unsafe_allow_html=True)
 
@@ -593,6 +657,7 @@ def nap_workspace() -> None:
     ss.lich_su = bytes_to_json(doc_file(p_user("lich_su")), []) or []
     ss.dx_rieng = nap_de_xuat(ss.ws)
     ss.ws_da_nap = ss.ws
+    ss.pop("xuat", None); ss.pop("ws_mau", None)
     ss.pop("xung_dot", None)
     ss.ver_nap = ss.get("ver_nap", 0) + 1  # đổi khoá bảng chọn ngành sau mỗi lần tải lại
     bump()
@@ -614,7 +679,7 @@ def kieu_gop(path: str) -> str | None:
         return "ds_id"
     if path.startswith("shared/"):
         return {"cau_hinh.json": "cau_hinh", "quy_doi_filter.json": "dict", "sua_sku.json": "dict",
-                "sua_gia_tri.json": "dict", "de_xuat_duyet.json": "dict", "quy_tac_kiem_tra.json": "dict", "map_tskt.parquet": "bang:cate,prop_id",
+                "sua_gia_tri.json": "dict", "de_xuat_duyet.json": "dict", "quy_tac_kiem_tra.json": "dict", "ai_hoc.json": "dict", "map_tskt.parquet": "bang:cate,prop_id",
                 "map_filter.parquet": "bang:cate,prop_id", "data_pim.parquet": "bang:"}.get(ten)
     if path.startswith("users/"):
         return {"settings.json": "settings", "lich_su.json": "ds"}.get(ten)
@@ -998,11 +1063,11 @@ def tao_ai() -> AIH.AI:
     # Ưu tiên: key dán tạm trong phiên → Secrets (cố định cho cả nhóm) → bản lưu cũ trên kho (nếu có)
     scf = ai_tu_secrets()
     acf = scf if scf.get("api_key") else (ss.get("ai_cau_hinh") or {})
-    prov = ss.get("ai_prov_tam") or acf.get("provider") or "groq"
-    key = ss.get("ai_key_tam") or acf.get("api_key") or ""
-    model = ss.get("ai_model_tam") or acf.get("model") or ""
-    base = acf.get("base_url") or ""
-    return AIH.AI(prov, key, model, base)
+    if ss.get("ai_key_tam"):
+        k_ = ss.ai_key_tam
+        return AIH.AI(_doan_prov(k_) or ss.get("ai_prov_tam") or "groq", k_, ss.get("ai_model_tam") or "", "")
+    prov = acf.get("provider") or "groq"
+    return AIH.AI(prov, acf.get("api_key") or "", acf.get("model") or "", acf.get("base_url") or "")
 
 
 _MAU_SECRETS_AI = 'AI_PROVIDER = "groq"\nAI_API_KEY = "gsk_...dán key vào đây..."\n# AI_MODEL = "openai/gpt-oss-120b"   # tuỳ chọn'
@@ -1058,7 +1123,7 @@ def thanh_ben() -> None:
         if st.toggle("🔎 Chữ to hơn (dễ đọc)", key="chu_to", help="Phóng to toàn bộ chữ và nút trong app."):
             st.markdown("<style>html{font-size:18.5px !important}.stApp p,.stApp label,.stApp li{font-size:1.08rem}"
                         "div[data-testid=stTab] p{font-size:1.05rem !important}</style>", unsafe_allow_html=True)
-        st.caption("💡 Chữ hướng dẫn dài được thu gọn — **rê chuột hoặc chạm vào** để đọc đầy đủ.")
+        st.caption("💡 Chữ hướng dẫn dài được thu gọn — **rê chuột vào** để đọc đầy đủ (điện thoại luôn hiện đủ).")
         if ss.admin:
             tk = list(ds_tai_khoan())
             chon = st.selectbox("Workspace đang xem", tk, index=tk.index(ss.ws) if ss.ws in tk else 0,
@@ -1190,7 +1255,11 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
             cap_nhat_ai_hoc_tu_bang(chi_cate=list(chon))
         except Exception:  # noqa: BLE001
             pass
+        ss.xuat_ver = ss.get("ver", 0)
     x = ss.get("xuat")
+    if x and ss.get("xuat_ver") != ss.get("ver", 0):
+        st.warning("Dữ liệu đã thay đổi sau lần tạo file trước — bấm **📤 Tạo file import** lại để có file mới nhất.")
+        x = None
     if x:
         st.markdown("#### Tải file (mở được ngay, không cần giải nén)")
         for t, d, n in x["files"]:
@@ -2069,6 +2138,7 @@ def qc_nguoc_tu_ai_hoc() -> list:
 
 
 def chay_map_ui() -> None:
+    ss.pop("xuat", None); ss.pop("ws_mau", None)  # map lại → bỏ file xuất cũ, tránh tải nhầm bản trước
     thieu_import = not len(ss.get("import", []))
     thieu_dsp = not len(ss.get("data_sp", []))
     if thieu_import or thieu_dsp:
@@ -2399,7 +2469,7 @@ def tab_qc(k: dict) -> None:
 # ----------------------------------------------------------------------------
 def khu_sua_loi(kind: str, k: dict) -> None:
     if kind == "kiem_chung":
-        tab_kiem_chung()
+        st.info("👉 Xem và xử lý chi tiết ở tab **✅ Kiểm chứng SKU ↔ DATA SP** (ngay bên cạnh tab này).")
         return
     if kind == "nhat_quan":
         hien_nhat_quan(nq(), "qc")
@@ -2430,7 +2500,7 @@ def khu_sua_loi(kind: str, k: dict) -> None:
         if not duoc_sua_chung():
             st.caption("Chỉ admin sửa cấu hình dùng chung.")
     elif kind == "filter_khong_khop":
-        khu_quy_doi_filter(ds()["loi"])
+        st.info("👉 Sửa ở tab **🧾 Đối soát CMS → kết quả** → mục **🔁 Quy đổi FILTER** (gõ giá trị PIM tương ứng).")
     elif kind == "filter_chu":
         _sua_filter_chu()
     elif kind == "khac_spec":
@@ -2451,7 +2521,7 @@ def khu_sua_loi(kind: str, k: dict) -> None:
     elif kind == "kich_thuoc":
         _sua_kich_thuoc(k)
     elif kind == "rong":
-        tab_rong(k)
+        st.info("👉 Chọn cách xử lý ở tab **🚫 Không / Đang cập nhật** (để trống / giữ / thay bằng…).")
     elif kind == "ttm":
         _sua_ttm_nhanh()
     elif kind == "sku_bat_buoc":
@@ -2620,7 +2690,7 @@ def _sua_kich_thuoc(k: dict) -> None:
     if tim:
         dfp = dfp[dfp["SKU"].str.contains(tim, case=False, regex=False)]
     dfp = dfp.head(2000).reset_index(drop=True)
-    goc = {c: {r["_sku"]: r["vals"].get(c, "") for r in b["rows"]} for c, _ in nhan}
+    goc = {c: {r["sku"]: r["vals"].get(c, "") for r in b["rows"]} for c, _ in nhan}
     cot_sua = [lb for _, lb in nhan]
     ed = st.data_editor(dfp.drop(columns=["_sku"]), hide_index=True, key=f"skt_pivot_{cate}_{ss.ver}",
                         height=min(520, 90 + 35 * len(dfp)), disabled=["SKU", "Model"])
@@ -3387,18 +3457,20 @@ def tab_rong(k: dict) -> None:
     c = st.columns([1, 1, 2, 1])
     them = c[2].text_input("Thêm giá trị khác", placeholder="vd: Không hỗ trợ")
     if c[0].button("▶ Áp & xem lại", type="primary"):
+        moi = dict(ss.rong)
         for i, d in enumerate(ds):
             hd = nhan_sang_hd.get(ed.at[i, "XỬ LÝ"], C.HD_GIU)
             if hd == C.HD_GIU:
-                ss.rong.pop(d["khoa"], None)
+                moi.pop(d["khoa"], None)
             else:
-                ss.rong[d["khoa"]] = [hd, C.chuan_hoa_key(ed.at[i, "Thay bằng"])]
+                moi[d["khoa"]] = [hd, C.chuan_hoa_key(ed.at[i, "Thay bằng"] or "")]
         if them.strip():
-            ss.rong.setdefault(C.khoa_gia_tri_rong(them), [C.HD_TRONG, ""])
-        thieu = [kk for kk, v in ss.rong.items() if v[0] == C.HD_THAY and not v[1]]
+            moi.setdefault(C.khoa_gia_tri_rong(them), [C.HD_TRONG, ""])
+        thieu = [kk for kk, v in moi.items() if v[0] == C.HD_THAY and not v[1]]
         if thieu:
-            st.error("Chưa nhập 'Thay bằng' cho: " + ", ".join(thieu))
+            st.error("Chưa nhập 'Thay bằng' cho: " + ", ".join(thieu) + " — chưa áp gì.")
             return
+        ss.rong = moi
         bump()
         luu(["settings"], "Áp quy tắc Không/Đang cập nhật")
         st.rerun()
