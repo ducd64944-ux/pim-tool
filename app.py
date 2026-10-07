@@ -2586,7 +2586,9 @@ def qc_tong_hop(k: dict) -> list:
         ("TT", "SKU không có trong file PIM cũ", s.get("khong_co_pim", 0) if co else 0, "Không đối chiếu được spec",
          "Bình thường với SKU mới", None, "khong_co_pim"),
     ]
-    return [x for x in q if x[2]]
+    # Mục người dùng đã mở trong phiên được GIỮ trong bảng dù đã sửa xong (số lượng 0) -> mở lại để chỉnh tiếp, không biến mất
+    giu = set(ss.get("qc_da_mo", []))
+    return [x for x in q if x[2] or x[6] in giu]
 
 
 def tab_qc(k: dict) -> None:
@@ -2611,12 +2613,21 @@ def tab_qc(k: dict) -> None:
                       column_config={"Số lượng": st.column_config.NumberColumn(format="%d")})
     rows = []
     try:
-        rows = ev.selection["rows"]
+        rows = list(ev.selection["rows"])
     except Exception:  # noqa: BLE001
-        rows = getattr(getattr(ev, "selection", None), "rows", []) or []
-    if rows:
-        i = rows[0]
-        muc, ten, so, y, g, act, kind = q[i]
+        rows = list(getattr(getattr(ev, "selection", None), "rows", []) or [])
+    # Nhớ mục đang mở THEO TÊN (không theo số thứ tự dòng): sửa xong, danh sách đổi/số lượng giảm vẫn không nhảy đi.
+    kinds = [x[6] for x in q]
+    sig = "|".join(kinds)
+    if ss.get("qc_sig") == sig and rows != ss.get("qc_rows"):
+        ss.qc_kind = q[rows[0]][6] if rows and rows[0] < len(q) else None
+    ss.qc_sig, ss.qc_rows = sig, rows
+    if ss.get("qc_kind") not in kinds:
+        ss.qc_kind = None
+    sel = next((x for x in q if x[6] == ss.get("qc_kind")), None)
+    if sel:
+        ss.qc_da_mo = sorted(set(ss.get("qc_da_mo", [])) | {sel[6]})
+        muc, ten, so, y, g, act, kind = sel
         st.markdown(f"<div class='card'><span class='pill pill-{muc.lower()}'>{MUC_ICON[muc]}</span> "
                     f"<span class='card-h'>{ten}</span> · <b>{so:,}</b><br><span class='card-s'>{y} — {g}</span></div>",
                     unsafe_allow_html=True)
