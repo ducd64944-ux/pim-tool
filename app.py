@@ -110,6 +110,29 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
+LIEN_HE = {"ten": "Đức Content 234766", "sdt": "0326606655", "line": ""}  # điền LINE ID vào "line"
+
+
+def the_lien_he() -> None:
+    """Dòng tên người làm; rê chuột vào hiện khung thông tin liên hệ (CSS thuần, không cần bấm)."""
+    import html as _h
+    lh = LIEN_HE
+    dong = f"<div><span>📞 SĐT</span><b>{_h.escape(lh['sdt'])}</b></div>"
+    if lh.get("line"):
+        dong += f"<div><span>💬 LINE ID</span><b>{_h.escape(lh['line'])}</b></div>"
+    st.markdown(
+        "<style>.lh-w{position:relative;display:inline-block;margin:.3rem 0}"
+        ".lh-t{font-size:.9rem;opacity:.75;cursor:default;border-bottom:1px dotted currentColor}"
+        ".lh-c{display:none;position:absolute;bottom:130%;left:0;z-index:9999;min-width:230px;padding:.7rem .9rem;"
+        "background:#fff;color:#1f2937;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);"
+        "font-size:.9rem}.lh-w:hover .lh-c{display:block}"
+        ".lh-c h6{margin:0 0 .4rem;font-size:.85rem;color:#1e3a8a}"
+        ".lh-c div{display:flex;justify-content:space-between;gap:1rem;padding:.15rem 0}"
+        ".lh-c span{opacity:.7}</style>"
+        f"<div class='lh-w'><span class='lh-t'>{_h.escape(lh['ten'])}</span>"
+        f"<div class='lh-c'><h6>Liên hệ nếu lỗi</h6>{dong}</div></div>", unsafe_allow_html=True)
+
+
 APP_VERSION = "web-2.8 · 2026-10-07 (thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
@@ -591,7 +614,7 @@ def dang_nhap() -> None:
                     except Exception as e:  # noqa: BLE001
                         done, msg = False, f"Lỗi lưu: {e}"
                     (st.success if done else st.error)(msg)
-        st.caption("Đức Content 234766", help="Liên hệ nếu lỗi: Đức Content 234766 · SĐT 0326606655")
+        the_lien_he()
     st.stop()
 
 
@@ -1312,7 +1335,7 @@ def thanh_ben() -> None:
             for k in list(ss.keys()):
                 del ss[k]
             st.rerun()
-        st.caption("Đức Content 234766", help="Liên hệ nếu lỗi: Đức Content 234766 · SĐT 0326606655")
+        the_lien_he()
 
 
 # ============================================================================
