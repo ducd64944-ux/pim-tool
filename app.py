@@ -95,7 +95,15 @@ def _tabs_on_dinh(tabs, *a, **kw):
         tabs = [_RE_SO_TAB.sub("", str(t)).strip() or str(t) for t in tabs]
     except Exception:  # noqa: BLE001
         pass
-    return _goc_tabs(tabs, *a, **kw)
+    try:  # nhớ tab đang mở theo khoá cố định -> bấm tab không còn nhảy về tab khác / phải bấm 2 lần
+        if "key" not in kw:
+            kw = dict(kw, key="tabs_" + format(__import__("zlib").crc32("|".join(tabs).encode()), "x"),
+                      on_change="rerun")
+        return _goc_tabs(tabs, *a, **kw)
+    except Exception:  # noqa: BLE001  (trùng khoá / phiên bản cũ) -> dùng tab thường
+        kw.pop("key", None)
+        kw.pop("on_change", None)
+        return _goc_tabs(tabs, *a, **kw)
 
 
 st.tabs = _tabs_on_dinh
@@ -127,7 +135,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-3.0 · 2026-10-07 (ô số liệu bấm được: mở bảng xem & sửa ngay · thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-3.2 · 2026-10-07 (kiểm tra nhanh trước khi tải · nút Lưu lại · sao lưu zip · tab ổn định · ô số liệu bấm được: mở bảng xem & sửa ngay · thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -909,29 +917,34 @@ def luu(phan: list, thong_diep: str, them_file: dict | None = None, ghi_de: dict
     # mất thay đổi mới hơn của máy khác); mọi file khác vẫn kiểm tra phiên bản như thường.
     ky_vong.update(ghi_de or {})
     ghi_chu, ok, msg = [], False, ""
-    with st.spinner("Đang lưu…"):
-        try:
-            for _ in range(4):
-                ok, msg, _ghi, xd = tao_store().luu(files, f"[{ss.user}] {thong_diep}", ky_vong)
-                if ok or not xd:
-                    break
-                khong_gop = []
-                for path in xd:
-                    b, pb, mo_ta = _gop(path, files.get(path))
-                    if b is None:
-                        khong_gop.append(path)
-                        continue
-                    files[path], ky_vong[path] = b, pb
-                    ghi_chu.append(f"{path.rsplit('/', 1)[-1]}: đã gộp với bản máy khác vừa lưu" +
-                                   (f" ({mo_ta})" if mo_ta else ""))
-                if khong_gop:
-                    ss.xung_dot = {"files": {p: files[p] for p in files}, "paths": khong_gop,
-                                   "xd": {p: xd[p] for p in khong_gop}, "thong_diep": thong_diep}
-                    msg = ("Workspace vừa được LƯU TỪ MÁY/TAB KHÁC (" + ", ".join(p.rsplit("/", 1)[-1] for p in khong_gop)
-                           + ") — chọn cách xử lý ở khung đỏ trên cùng.")
-                    break
-        except Exception as e:  # noqa: BLE001
-            ok, msg = False, f"Lỗi khi lưu: {e}"
+    for _lan in range(3):  # lỗi 5xx tạm thời của GitHub: tự thử lại tối đa 3 lượt trước khi báo lỗi
+        ghi_chu = []
+        with st.spinner("Đang lưu…"):
+            try:
+                for _ in range(4):
+                    ok, msg, _ghi, xd = tao_store().luu(files, f"[{ss.user}] {thong_diep}", ky_vong)
+                    if ok or not xd:
+                        break
+                    khong_gop = []
+                    for path in xd:
+                        b, pb, mo_ta = _gop(path, files.get(path))
+                        if b is None:
+                            khong_gop.append(path)
+                            continue
+                        files[path], ky_vong[path] = b, pb
+                        ghi_chu.append(f"{path.rsplit('/', 1)[-1]}: đã gộp với bản máy khác vừa lưu" +
+                                       (f" ({mo_ta})" if mo_ta else ""))
+                    if khong_gop:
+                        ss.xung_dot = {"files": {p: files[p] for p in files}, "paths": khong_gop,
+                                       "xd": {p: xd[p] for p in khong_gop}, "thong_diep": thong_diep}
+                        msg = ("Workspace vừa được LƯU TỪ MÁY/TAB KHÁC (" + ", ".join(p.rsplit("/", 1)[-1] for p in khong_gop)
+                               + ") — chọn cách xử lý ở khung đỏ trên cùng.")
+                        break
+            except Exception as e:  # noqa: BLE001
+                ok, msg = False, f"Lỗi khi lưu: {e}"
+        if ok or ss.get("xung_dot") or "lỗi 5" not in msg:
+            break
+        time.sleep(3 * (_lan + 1))
     if ok:
         for p, d in files.items():
             goc[p] = (git_sha(d), d)
@@ -940,6 +953,7 @@ def luu(phan: list, thong_diep: str, them_file: dict | None = None, ghi_de: dict
         if x and set(x["paths"]) <= set(files):  # chỉ gỡ xung đột khi chính các file đó đã lưu được
             ss.pop("xung_dot", None)
         ss.chua_luu = bool(ss.get("xung_dot"))
+        ss.pop("_luu_lai", None)
         st.toast(f"💾 {msg}", icon="✅")
         for g in ghi_chu:
             st.toast("🔀 " + g, icon="ℹ️")
@@ -947,8 +961,21 @@ def luu(phan: list, thong_diep: str, them_file: dict | None = None, ghi_de: dict
         ss.chua_luu = True
         if ss.get("xung_dot"):
             st.rerun()  # khung xử lý xung đột vẽ 1 lần ở đầu trang (tránh trùng widget)
-        st.error(f"⚠️ CHƯA LƯU ĐƯỢC: {msg}")
+        ss._luu_lai = (list(phan), thong_diep)
+        st.error(f"⚠️ CHƯA LƯU ĐƯỢC: {msg} — dữ liệu vẫn còn trên màn hình, bấm «🔁 Lưu lại» ở đầu trang.")
     return ok
+
+
+def thanh_luu_lai() -> None:
+    """Lưu thất bại (vd GitHub lỗi 500) → nút lưu lại 1 chạm, không phải làm lại thao tác."""
+    x = ss.get("_luu_lai")
+    if not x or ss.get("xung_dot"):
+        return
+    c = st.columns([5, 1.6], vertical_alignment="center")
+    c[0].markdown("⚠️ **Chưa lưu được lần gần nhất** — dữ liệu vẫn còn trong phiên làm việc này.")
+    if c[1].button("🔁 Lưu lại", type="primary", key="btn_luu_lai"):
+        luu(*x)
+        st.rerun()
 
 
 def hien_xung_dot() -> None:
@@ -1425,6 +1452,62 @@ def _chan_nhanh() -> list:
     return out
 
 
+def khu_kiem_nhanh(key: str, chon: list) -> None:
+    """Trước khi tải file: bảng kết quả kiểm tra (bằng code, đọc đúng dữ liệu đã map + DATA SP) + lưới giá trị SẼ XUẤT sửa nhanh."""
+    if not chon or bang_trong():
+        st.info("Chưa có ngành nào để kiểm tra.")
+        return
+    k = kq()
+    q = qc_tong_hop(k)
+    if q:
+        st.markdown("**Kết quả kiểm tra**")
+        st.dataframe(pd.DataFrame([{"Mức": MUC_ICON[a], "Vùng": b, "Số lượng": n_, "Cách xử lý": g}
+                                   for a, b, n_, y, g, act, kind in q]),
+                     hide_index=True, width="stretch", height=min(300, 60 + 35 * len(q)))
+    else:
+        st.success("✔ Không có mục nào cần xử lý — có thể tải file.")
+    st.markdown("**Giá trị sẽ xuất** (sửa trực tiếp rồi bấm Lưu — file import dùng đúng các giá trị này)")
+    c = st.columns([2, 2])
+    cate = c[0].selectbox("Ngành hàng", chon, format_func=lambda x: ss.bang[x]["title"], key=f"{key}_kn_cate")
+    b = ss.bang[cate]
+    models = sorted({r["model"] for r in b["rows"] if r["model"]})
+    mo = c[1].selectbox("Mã model", ["Tất cả"] + models, key=f"{key}_kn_model_{cate}")
+    cot = [m for m in C.cot_tt(b) if not C.la_cot_filter(m)]
+    rows = [r for r in b["rows"] if mo == "Tất cả" or r["model"] == mo]
+    out = []
+    for r in rows[:300]:
+        d = {"Model": r["model"], "SKU": r["sku"]}
+        for m in cot:
+            d[m], _ = C.bien_doi_o(cate, r["sku"], m, r["vals"].get(m, ""), ss.sua, ss.dv, ss.rong)
+        out.append(d)
+    df = pd.DataFrame(out)
+    giu = [m for m in cot if m in df.columns and (df[m].astype(str).str.strip() != "").any()]
+    if not giu:
+        st.info("Ngành này chưa có ô nào có giá trị.")
+        return
+    df = df[["Model", "SKU"] + giu]
+    st.caption(f"{len(df):,} SKU · {len(giu)} cột có thông tin" + (" — hiện 300 SKU đầu, chọn model để xem hết" if len(rows) > 300 else ""))
+    ten = b.get("ten", {})
+    ed = st.data_editor(df, hide_index=True, width="stretch", height=min(460, 60 + 35 * min(len(df), 11)),
+                        key=f"{key}_kn_ed_{cate}_{mo}_{ss.ver}", disabled=["Model", "SKU"],
+                        column_config={m: st.column_config.TextColumn(ten.get(m) or m, help=m) for m in giu})
+    if st.button("💾 Lưu các ô đã sửa", type="primary", key=f"{key}_kn_luu"):
+        goc = {r["sku"]: r for r in b["rows"]}
+        n = 0
+        for i in range(len(df)):
+            for m in giu:
+                moi = C.chuan_hoa_key(ed.at[i, m] or "")
+                cu_ = C.chuan_hoa_key(df.at[i, m] or "")
+                if moi != cu_:
+                    dat_sua(cate, df.at[i, "SKU"], m, moi, goc[df.at[i, "SKU"]]["vals"].get(m, ""))
+                    n += 1
+        if n:
+            bump()
+            luu(["settings"], f"Kiểm tra nhanh: sửa {n} ô")
+            st.rerun()
+        st.info("Chưa có ô nào thay đổi.")
+
+
 def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_xn: bool | None = None) -> None:
     """Khối xuất dùng chung (trang Làm nhanh + trang Xuất)."""
     if chon is None:
@@ -1439,6 +1522,14 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
     with c[2]:
         nut_xin_data(f"{key}_xd")
     canh_bao_o_ten()
+    kn = bool(ss.get(f"{key}_kn"))
+    if st.button("✕ Đóng kiểm tra nhanh" if kn else "🔎 Kiểm tra nhanh trước khi tải", width="stretch",
+                 type="secondary" if kn else "primary", key=f"xem_{key}_kn"):
+        ss[f"{key}_kn"] = not kn
+        st.rerun()
+    if kn:
+        with st.container(border=True):
+            khu_kiem_nhanh(key, chon)
     xn = True
     # Chỉ bắt tick khi có lỗi CHẶN (can_xn); lưu ý thường không cần tick -> bớt 1 lượt bấm.
     if (can_xn if can_xn is not None else bool(canh)):
@@ -4789,8 +4880,36 @@ def kiem_tra_he_thong() -> None:
     st.dataframe(pd.DataFrame([{"": "✅" if ok else "❌", "Hạng mục": a, "Chi tiết": b} for a, ok, b in kq]),
                  hide_index=True, width="stretch")
     chan_doan_kho_user()
+    nut_sao_luu()
     if HIEN_AI:
         thu_vien_ai_hoc()
+
+
+def nut_sao_luu() -> None:
+    """Sao lưu 1 chạm: gom toàn bộ file dùng chung + workspace đang xem thành 1 file zip tải về máy (dự phòng ngoài GitHub)."""
+    import io
+    import zipfile
+    st.markdown("#### 💾 Sao lưu dự phòng")
+    st.caption("Mỗi lần lưu, GitHub đã giữ lịch sử (khôi phục ở ⚙️ Cấu hình → lịch sử). Thêm bản zip này để giữ 1 bản trên máy anh.")
+    if st.button("Chuẩn bị bản sao lưu (.zip)", key="btn_sao_luu"):
+        with st.spinner("Đang gom file…"):
+            buf = io.BytesIO()
+            n = 0
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                paths = list(F_SHARED.values()) + [p_user(x) for x in
+                                                   ("import", "data_sp", "spec", "ket_qua", "ket_qua_meta", "settings", "lich_su")]
+                for p in paths:
+                    try:
+                        d = doc_file(p)
+                    except Exception:  # noqa: BLE001
+                        d = None
+                    if d:
+                        zf.writestr(p, d)
+                        n += 1
+        ss.sao_luu = (f"SAO_LUU_PIM_{C.bay_gio()[:10]}_{ss.ws}.zip", buf.getvalue(), n)
+    x = ss.get("sao_luu")
+    if x:
+        st.download_button(f"⬇ Tải bản sao lưu ({x[2]} file)", x[1], file_name=x[0], key="dl_sao_luu")
 
 
 def thu_vien_ai_hoc() -> None:
@@ -5093,6 +5212,7 @@ try:
     st.markdown(_html, unsafe_allow_html=True)
 except Exception:
     pass
+thanh_luu_lai()
 thanh_hoan_tac()
 if ss.vung == VUNG[0]:
     vung_chay()
