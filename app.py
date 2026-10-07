@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-3.5 · 2026-10-07"
+APP_VERSION = "web-3.6 · 2026-10-07"
 ss = st.session_state
 
 
@@ -1473,7 +1473,7 @@ def thanh_ben() -> None:
         if st.toggle("🔎 Chữ to hơn (dễ đọc)", key="chu_to", help="Phóng to toàn bộ chữ và nút trong app."):
             st.markdown("<style>html{font-size:18.5px !important}.stApp p,.stApp label,.stApp li{font-size:1.08rem}"
                         "div[data-testid=stTab] p{font-size:1.05rem !important}</style>", unsafe_allow_html=True)
-        st.caption("💡 Chữ hướng dẫn dài được thu gọn — **rê chuột vào** để đọc đầy đủ (điện thoại luôn hiện đủ).")
+        st.caption("💡 Chữ dài được thu gọn — rê chuột vào để đọc đủ.")
         if ss.admin:
             tk = list(ds_tai_khoan())
             chon = st.selectbox("Workspace đang xem", tk, index=tk.index(ss.ws) if ss.ws in tk else 0,
@@ -2623,7 +2623,7 @@ def trang_map() -> None:
     _co_import = len(ss.get("import", [])) > 0
     _co_data_sp = len(ss.get("data_sp", [])) > 0
     if not _co_import and not _co_data_sp and not ss.get("bang"):
-        st.warning("⚠️ **Chưa có dữ liệu** — vào **🚀 Chạy pipeline → ① Nạp dữ liệu** nạp file lô trước, rồi quay lại đây.")
+        st.warning("⚠️ **Chưa có dữ liệu.** Vào **🚀 Chạy pipeline → ① Nạp dữ liệu**, nạp file lô trước rồi quay lại đây.")
         return
     # Cảnh báo khi kết quả map CÓ nhưng IMPORT/DATA SP TRỐNG — thường do session trước lưu được ket_qua
     # mà không lưu được import/data_sp (crash giữa chừng). Người dùng cần nạp lại.
@@ -4619,7 +4619,7 @@ def trang_de_xuat() -> None:
     st.title("📮 Đề xuất sửa dữ liệu CMS")
     # --- RÀO: phải có dữ liệu đã map trước mới tạo đề xuất ---
     if not len(ss.get("import", [])) and not len(ss.get("data_sp", [])) and bang_trong():
-        st.info("⏳ Chưa có dữ liệu — vào **🚀 Chạy pipeline** nạp file lô và map trước, rồi quay lại đây tạo đề xuất.")
+        st.info("⚠️ Nạp file lô và map trước ở **🚀 Chạy pipeline**, rồi quay lại đây tạo đề xuất.")
         return
     st.markdown("<div class='buoc'>Dữ liệu CMS (TSKT/FILTER) sai 1–2 giá trị → <b>thành viên đề xuất sửa</b>: áp dụng "
                 "<b>ngay</b> cho workspace của mình (map lại là có) → <b>admin duyệt</b> → thành quy tắc <b>dùng chung lâu dài"
@@ -4839,11 +4839,15 @@ def tab_quy_tac_chung() -> None:
 def trang_huong_dan() -> None:
     st.title("📘 Hướng dẫn")
     goc = os.path.dirname(os.path.abspath(__file__))
-    t = st.tabs(["Dùng hằng ngày", "Cài đặt (admin)", "Quy tắc map (giống desktop)"])
-    for tab, f in zip(t, ("HUONG_DAN_SU_DUNG.md", "HUONG_DAN_CAI_DAT.md", "QUY_TAC_MAP.md")):
-        with tab:
-            p = os.path.join(goc, f)
-            st.markdown(open(p, encoding="utf-8").read() if os.path.exists(p) else f"(Thiếu file {f})")
+    if ss.get("admin"):
+        t = st.tabs(["Dùng hằng ngày", "Cài đặt (admin)", "Quy tắc map (giống desktop)"])
+        for tab, f in zip(t, ("HUONG_DAN_SU_DUNG.md", "HUONG_DAN_CAI_DAT.md", "QUY_TAC_MAP.md")):
+            with tab:
+                p = os.path.join(goc, f)
+                st.markdown(open(p, encoding="utf-8").read() if os.path.exists(p) else f"(Thiếu file {f})")
+    else:
+        p = os.path.join(goc, "HUONG_DAN_SU_DUNG.md")
+        st.markdown(open(p, encoding="utf-8").read() if os.path.exists(p) else "(Thiếu file hướng dẫn)")
 
 
 # ============================================================================
@@ -5125,7 +5129,7 @@ def vung_chay() -> None:
     xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
     st.markdown("### ② Map")
     if not xong1:
-        st.info("⏳ **Bước ①** chưa xong — nạp IMPORT và DATA SP ở trên trước, rồi quay xuống đây bấm Map.")
+        st.info("👆 Nạp file ở **bước ①** trước rồi mới bấm Map được.")
     else:
         if len(ss.data_sp):
             _d = nq()
@@ -5145,14 +5149,14 @@ def vung_chay() -> None:
             ss.map_flash = ss.get("map_msg", "")
             ss.chuyen_vung = "🔍 Kiểm tra & Đối chiếu"  # như 66.py: map xong tự sang tab kiểm tra
             st.rerun()
-    cm[1].caption(f"Map lần cuối: {ss.meta['luc']} — xem kết quả ở vùng 🔍 Kiểm tra & Đối chiếu." if ss.meta.get("luc") else
-                  ("Map xong tool tự chuyển sang vùng 🔍 Kiểm tra & Đối chiếu." if xong1 else
-                   "Cần có IMPORT và DATA SP trước."))
+    cm[1].caption(f"Map lần cuối: {ss.meta['luc']} — xem kết quả ở 🔍 Kiểm tra." if ss.meta.get("luc") else
+                  ("Map xong tự chuyển sang 🔍 Kiểm tra." if xong1 else
+                   "Nạp file ở bước ① trước."))
     st.markdown("### ③ Xuất file import")
     if not xong1:
-        st.info("⏳ **Bước ① → ②** chưa xong — nạp dữ liệu và map trước, rồi xuất ở đây.")
+        st.info("👆 Nạp file ở **bước ①** và bấm **Map ở bước ②** trước rồi mới xuất được.")
     elif bang_trong():
-        st.caption("⏳ Bấm **② Map** ở trên trước — map xong mới xuất được.")
+        st.caption("👆 Bấm **② Map** ở trên trước — có kết quả rồi mới xuất được.")
     else:
         _cn = _chan_nhanh()
         xuat_gon("ln", None, _cn, can_xn=bool(_cn))
