@@ -126,7 +126,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-2.8 · 2026-10-07 (thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.9 · 2026-10-07 (thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -248,7 +248,7 @@ section[data-testid="stFileUploaderDropzone"]:hover {border-color: var(--brand-2
 div[data-testid="stTextInput"] input:focus, div[data-testid="stTextArea"] textarea:focus {
   border-color: var(--brand-2) !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15);}
 /* Khi đang xử lý, phần đang chờ mờ nhẹ -> người dùng biết app đang chạy */
-.stale-element, [data-stale="true"] {opacity: .55; transition: opacity .2s;}
+.stale-element, [data-stale="true"] {opacity: .55;}
 /* Nút chính (kể cả nút trong form): chữ trắng rõ trên nền xanh */
 button[kind="primary"], button[kind="primaryFormSubmit"] {background: var(--brand) !important; color: #fff !important;
   border-color: var(--brand) !important; font-weight: 600;}
@@ -332,34 +332,9 @@ div[data-testid="stMetric"] {min-height: 100%;}
 .stApp h1 + div, .stApp h1 span {font-size: inherit;}
 section[data-testid="stSidebar"] .stButton>button {font-size: .95rem; padding: 6px 10px;}
 section[data-testid="stSidebar"] .stButton>button p {white-space: nowrap; font-size: .95rem;}
-/* CHỮ DÀI: thu gọn còn ~2 dòng (mờ dần) — RÊ CHUỘT / CHẠM vào thì hiện đầy đủ, nổi lên cho dễ đọc */
-div[data-testid="stCaptionContainer"], .buoc, div[data-testid="stAlertContainer"] {
-  transition: box-shadow .15s, background .15s;}
-div[data-testid="stCaptionContainer"] {max-height: 4.7em; overflow: hidden; cursor: help; border-radius: 8px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 3.2em, transparent 4.7em);
-          mask-image: linear-gradient(to bottom, #000 3.2em, transparent 4.7em);}
-.buoc {max-height: 5.4em; overflow: hidden; cursor: help;
-  -webkit-mask-image: linear-gradient(to bottom, #000 3.9em, transparent 5.4em);
-          mask-image: linear-gradient(to bottom, #000 3.9em, transparent 5.4em);}
-div[data-testid="stAlertContainer"] {max-height: 6.2em; overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 4.6em, transparent 6.2em);
-          mask-image: linear-gradient(to bottom, #000 4.6em, transparent 6.2em);}
-.buoc:hover, .buoc:active, div[data-testid="stAlertContainer"]:hover, div[data-testid="stAlertContainer"]:active {
-  max-height: none; -webkit-mask-image: none; mask-image: none; position: relative; z-index: 5;
-  box-shadow: 0 6px 22px rgba(15,23,42,.16);}
-/* Chú thích: hiện đầy đủ NỔI ĐÈ lên trên, không đẩy nút bên dưới (giao diện không bị nhảy) */
-div[data-testid="stCaptionContainer"]:hover, div[data-testid="stCaptionContainer"]:active {overflow: visible;
-  -webkit-mask-image: none; mask-image: none; position: relative; z-index: 30;}
-div[data-testid="stCaptionContainer"]:hover > *, div[data-testid="stCaptionContainer"]:active > * {
-  position: relative; background: #fff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 8px 12px;
-  margin: -9px -13px; box-shadow: 0 10px 28px rgba(15,23,42,.18);}
-div[data-testid="stElementContainer"]:has(> div[data-testid="stCaptionContainer"]:hover) {z-index: 30; position: relative;}
+/* web-2.9: KHÔNG còn hiệu ứng rê chuột đổi kích thước/vị trí (gây giật, lag khi cuộn): chữ luôn hiện đủ, đứng yên */
 div[data-testid="stCaptionContainer"] p {font-size: .93rem; line-height: 1.55;}
 /* VÙNG đang trỏ chuột: viền xanh + bóng → biết đang làm ở khung nào */
-div[data-testid="stExpander"], div[data-testid="stForm"], div[data-testid="stVerticalBlockBorderWrapper"] {
-  transition: border-color .15s, box-shadow .15s;}
-div[data-testid="stExpander"]:hover, div[data-testid="stForm"]:hover {border-color: var(--brand-2) !important;
-  box-shadow: 0 4px 18px rgba(30,64,175,.12);}
 div[data-testid="stExpander"] summary p {font-size: 1.02rem; font-weight: 600;}
 div[data-testid="stExpander"] details[open] > summary {background: var(--brand-tint); border-bottom: 1px solid var(--line);}
 /* Ô bảng số liệu & thanh trạng thái to hơn chút */
@@ -388,7 +363,6 @@ section[data-testid="stSidebar"] div[data-testid="stCaptionContainer"] {max-heig
     -webkit-mask-image: none !important; mask-image: none !important;}
 }
 div[data-testid="stCaptionContainer"] {margin-bottom: .35rem;}
-div[data-testid="stCaptionContainer"]:hover > * {pointer-events: none;}
 /* Nút mở lại thanh bên (nằm trong toolbar đang ẩn) — phải luôn thấy, nhất là trên điện thoại */
 div[data-testid="stToolbar"] [data-testid="stExpandSidebarButton"],
 div[data-testid="stToolbar"] [data-testid="stExpandSidebarButton"] * {visibility: visible !important;}
@@ -2478,7 +2452,7 @@ def trang_map() -> None:
     (t_qc, t_kc, t_nq, t_cb, t_ht, t_ds, t_ai, t_khac, t_sku, t_dv, t_rong, t_kt, t_cm, t_log) = st.tabs([
         "🛡️ QC tổng hợp", f"✅ Kiểm chứng SKU ↔ DATA SP{' (' + str(kc_n) + ')' if kc_n else ' ✔'}",
         f"🧭 Nhất quán ngành{' (' + str(nq_n) + ')' if nq_n else ' ✔'}", "⚠️ Cảnh báo",
-        "📈 Độ hoàn thiện & quy tắc", "🧾 Đối soát CMS → kết quả", "🤖 Gợi ý thông minh & AI",
+        "📈 Độ hoàn thiện & quy tắc", "🧾 Đối soát CMS → kết quả", "💡 Gợi ý thông minh & AI",
         "≠ Khác spec PIM (sửa)", "🔎 Theo SKU + FILTER", "📏 Đơn vị & biến đổi hàng loạt", "🚫 Không / Đang cập nhật",
         "📐 Gộp / tách kích thước", "🧩 Thuộc tính chưa map", "📜 Log map"])
     with t_qc:
