@@ -3622,7 +3622,13 @@ def _mo_ta_buoc(x: dict) -> str:
 
 
 def khu_bien_doi() -> None:
-    st.markdown("##### ② Biến đổi hàng loạt (thêm đơn vị / chữ, đổi đơn vị mm→cm, thay chữ, làm tròn)")
+    """Vùng nâng cao — mặc định THU GỌN (không mất, bấm mở khi cần)."""
+    n = len([1 for k, v in ss.dv.items() if len(k) == 3 and v])
+    with st.expander(f"② Biến đổi hàng loạt — nâng cao{f' · đang áp {n} cột' if n else ''} (bấm để mở)", expanded=False):
+        _khu_bien_doi_noi_dung()
+
+
+def _khu_bien_doi_noi_dung() -> None:
     st.caption("Áp sau đơn vị ở ①, trước khi xuất. Không bao giờ áp vào cột FILTER. Ô sửa tay và quy tắc "
                "Không/Đang cập nhật được ưu tiên hơn. **Chọn lại cột đã áp → form tự hiện đúng giá trị đã đặt để sửa.**")
     if bang_trong():
@@ -3728,9 +3734,9 @@ def khu_bien_doi() -> None:
     dang = [(k, v) for k, v in ss.dv.items() if len(k) == 3 and v]
     if dang:
         st.markdown("**Cột đang có biến đổi** (chọn cột ở ô «Cột áp dụng» để xem & sửa):")
-        st.markdown("\n".join(
-            f"- `{k[1]}` {'(mọi ngành)' if k[0] == '*' else '(ngành ' + k[0] + ')'}: "
-            + " → ".join(_mo_ta_buoc(x) for x in v) for k, v in dang))
+        st.dataframe(pd.DataFrame([{"Cột": k[1], "Ngành": "mọi ngành" if k[0] == "*" else k[0],
+                                    "Biến đổi": " → ".join(_mo_ta_buoc(x) for x in v)} for k, v in dang]),
+                     hide_index=True, height=min(220, 40 + 35 * len(dang)), width="stretch")
 
 
 def tab_rong(k: dict) -> None:
