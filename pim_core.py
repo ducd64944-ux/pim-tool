@@ -1754,6 +1754,153 @@ def kiem_chung_sku(bang: Dict[str, dict], data_sp: pd.DataFrame, imp: pd.DataFra
     return {"loi": pd.DataFrame(out, columns=cot), "tk": dict(tk)}
 
 
+# ============================================================================
+# QC NGẦM: NHẤT QUÁN NGÀNH HÀNG (cấu hình · DATA SP · mapping TSKT · mapping FILTER · DATA PIM)
+# Chỉ ĐỌC. Không đổi dữ liệu, không đổi kết quả map. Dùng đúng quy tắc của chay_map (setdefault, la_cot_filter…).
+# ============================================================================
+def kiem_tra_nhat_quan(cau_hinh: Dict[str, dict], data_sp: Optional[pd.DataFrame], map_tskt: pd.DataFrame,
+                       map_filter: pd.DataFrame, opt: dict, quy_doi: Optional[Dict[str, str]] = None,
+                       chi_cate: Optional[List[str]] = None) -> dict:
+    """-> {"loi": DataFrame(Mức, NH, Vùng, Vấn đề, Số, Chi tiết), "nganh": DataFrame tóm tắt từng ngành}.
+    chi_cate=None: kiểm các ngành có trong DATA SP (+ ngành có cấu hình nếu DATA SP trống)."""
+    quy_doi = quy_doi or {}
+    sp = data_sp if data_sp is not None and len(data_sp) else pd.DataFrame(columns=COT_DATA_SP)
+    cate_sp = sorted(set(sp.CATEGORYID) - {""}) if len(sp) else []
+    if chi_cate is None:
+        chi_cate = cate_sp or sorted(cau_hinh)
+    chi_cate = [c for c in dict.fromkeys(chi_cate) if c]
+    tm_rows = map_tskt[map_tskt.cate.isin(chi_cate)] if len(map_tskt) else map_tskt
+    fm_rows = map_filter[map_filter.cate.isin(chi_cate)] if len(map_filter) else map_filter
+    opt_ds = opt.get("opt_ds", {}) if opt else {}
+    loi: List[list] = []
+    tom: List[dict] = []
+
+    def them(muc, cate, vung, van_de, so, chi_tiet=""):
+        loi.append([muc, cate, vung, van_de, int(so), chi_tiet])
+    for cate in chi_cate:
+        cfg = cau_hinh.get(cate) or {}
+        cot = [c for c in (cfg.get("cot") or []) if c.lower() not in COT_KHONG_PHAI_SPEC]
+        cot_set = set(cot)
+        ten_nh = cfg.get("ten", "")
+        t_c = tm_rows[tm_rows.cate == cate] if len(tm_rows) else tm_rows
+        f_c = fm_rows[fm_rows.cate == cate] if len(fm_rows) else fm_rows
+        if not ten_nh:
+            ten_nh = next((x for x in list(t_c.cate_name) + list(f_c.cate_name) if x), "")
+        sp_c = sp[sp.CATEGORYID == cate] if len(sp) else sp
+        n_sku = sp_c.PRODUCTCODE.nunique() if len(sp_c) else 0
+        # mapping theo đúng chay_map: setdefault (dòng đầu thắng)
+        tm: Dict[str, str] = {}
+        tm_tat: Dict[str, set] = defaultdict(set)
+        for pid, ma in t_c[["prop_id", "ma"]].itertuples(index=False):
+            tm.setdefault(pid, ma)
+            tm_tat[pid].add(ma)
+        fm: Dict[str, str] = {}
+        fm_tat: Dict[str, set] = defaultdict(set)
+        for pid, ma in f_c[["prop_id", "ma"]].itertuples(index=False):
+            fm.setdefault(pid, ma)
+            fm_tat[pid].add(ma)
+        ma_map = set(tm.values()) | set(fm.values())
+        # A/B: sót cấu hình / sót mapping
+        if n_sku and not cot:
+            them("CAO", cate, "Cấu hình", "Ngành có trong DATA SP nhưng CHƯA có cấu hình cột", n_sku,
+                 f"{n_sku} SKU sẽ bị bỏ qua khi map — thêm cấu hình ngành (file mẫu ngành / ⚙️ Cấu hình)")
+        if n_sku and not tm and not fm:
+            them("CAO", cate, "Mapping", "Ngành có trong DATA SP nhưng CHƯA có mapping TSKT/FILTER", n_sku,
+                 f"{n_sku} SKU sẽ bị bỏ qua khi map (giống desktop) — nạp MAPPING TSKT/FILTER của ngành")
+        if cot and not tm and not fm and not n_sku:
+            them("TB", cate, "Mapping", "Ngành có cấu hình nhưng chưa có mapping nào", len(cot),
+                 "Khi có DATA SP của ngành này sẽ không map được")
+        # C: cột cấu hình không có mapping nào trỏ tới
+        if cot and (tm or fm):
+            trong = [c for c in cot if c not in ma_map]
+            if trong:
+                them("TB", cate, "Cấu hình ↔ Mapping", "Cột cấu hình chưa có mapping nào trỏ tới (luôn trống)",
+                     len(trong), ", ".join(trong[:15]) + (" …" if len(trong) > 15 else ""))
+        # D: mapping trỏ tới cột không có trong cấu hình
+        if cot:
+            ngoai = sorted(m for m in ma_map if m and m not in cot_set)
+            if ngoai:
+                them("CAO", cate, "Mapping ↔ Cấu hình", "Mapping trỏ tới cột KHÔNG có trong cấu hình (giá trị bị bỏ)",
+                     len(ngoai), ", ".join(ngoai[:15]) + (" …" if len(ngoai) > 15 else ""))
+        # G: 1 PROPERTYID map tới nhiều cột
+        for vung, tat, dung in (("Mapping TSKT", tm_tat, tm), ("Mapping FILTER", fm_tat, fm)):
+            trung = {pid: sorted(v) for pid, v in tat.items() if len(v) > 1}
+            if trung:
+                them("TB", cate, vung, "1 PROPERTYID trỏ tới nhiều cột — chỉ dòng đầu được dùng", len(trung),
+                     "; ".join(f"{pid}: dùng {dung[pid]} (bỏ {', '.join(x for x in v if x != dung[pid])})"
+                               for pid, v in list(trung.items())[:8]))
+        # I: sai loại cột
+        sai_f = sorted({m for m in fm.values() if m and not la_cot_filter(m)})
+        if sai_f:
+            them("CAO", cate, "Mapping FILTER", "Mapping FILTER trỏ tới cột KHÔNG phải FILTER", len(sai_f),
+                 ", ".join(sai_f[:10]))
+        sai_t = sorted({m for m in tm.values() if m and la_cot_filter(m)})
+        if sai_t:
+            them("CAO", cate, "Mapping TSKT", "Mapping TSKT trỏ tới cột FILTER (cột cần MÃ option)", len(sai_t),
+                 ", ".join(sai_t[:10]))
+        # J: cột FILTER không có option trong DATA PIM
+        cot_f = sorted({m for m in list(fm.values()) + cot if m and la_cot_filter(m)})
+        thieu_opt = [m for m in cot_f if not opt_ds.get(m)]
+        if thieu_opt:
+            them("CAO", cate, "DATA PIM", "Cột FILTER không có option nào trong DATA PIM (mọi ô sẽ trống)",
+                 len(thieu_opt), ", ".join(thieu_opt[:10]))
+        # L: cột cấu hình lặp
+        lap = sorted({c for c in cot if cot.count(c) > 1})
+        if lap:
+            them("TB", cate, "Cấu hình", "Cột bị lặp trong cấu hình", len(lap), ", ".join(lap))
+        # E/K: theo DATA SP của ngành
+        n_pid = n_pid_map = 0
+        if len(sp_c):
+            pid_ten: Dict[str, str] = {}
+            pid_dong: Counter = Counter()
+            for pid, pname in sp_c[["PROPERTYID", "PROPERTYNAME"]].itertuples(index=False):
+                if pid:
+                    pid_dong[pid] += 1
+                    pid_ten.setdefault(pid, pname)
+            n_pid = len(pid_dong)
+            chua = [pid for pid in pid_dong if pid not in tm and pid not in fm]
+            n_pid_map = n_pid - len(chua)
+            if chua and (tm or fm):
+                # gợi ý (chỉ gợi ý): tên thuộc tính CMS trùng tên 1 cột cấu hình CHƯA có mapping
+                ten_cot = cfg.get("ten_cot") or {}
+                cot_trong = {chuan_hoa_ten(ten_cot.get(c, "")): c for c in cot if c not in ma_map and ten_cot.get(c)}
+                def _gy(pid):
+                    m = cot_trong.get(chuan_hoa_ten(pid_ten.get(pid, "")))
+                    return f" → gợi ý cột {m}" if m else ""
+                them("TB", cate, "DATA SP ↔ Mapping", "Thuộc tính CMS trong DATA SP chưa có mapping (không vào file)",
+                     len(chua), "; ".join(f"{pid} {pid_ten.get(pid, '')} ({pid_dong[pid]} dòng){_gy(pid)}"
+                                          for pid in sorted(chua, key=lambda x: -pid_dong[x])[:10]))
+            # giá trị FILTER không khớp option (giống chay_map: quy đổi trước, rồi option_map)
+            khong_khop: Dict[Tuple[str, str], int] = Counter()
+            om = opt.get("option_map", {}) if opt else {}
+            for pid, val in sp_c[["PROPERTYID", "PROPVALUE"]].itertuples(index=False):
+                ma = fm.get(pid)
+                if not ma or not val or ma not in cot_set:
+                    continue
+                if not (quy_doi.get(f"{ma}\t{khoa_quy_doi(val)}") or om.get((ma, khoa_option(val)))):
+                    khong_khop[(ma, val)] += 1
+            if khong_khop:
+                them("TB", cate, "DATA SP ↔ DATA PIM", "Giá trị FILTER trong DATA SP không khớp option DATA PIM",
+                     len(khong_khop), "; ".join(f"{m}=\"{v}\"" for (m, v) in list(khong_khop)[:8]))
+            # F: mapping có PROPERTYID không xuất hiện trong lô (thông tin)
+            khong_co = [pid for pid in list(tm) + list(fm) if pid not in pid_dong]
+            if khong_co:
+                them("TT", cate, "Mapping ↔ DATA SP", "PROPERTYID có mapping nhưng lô này không có dữ liệu",
+                     len(set(khong_co)), "Bình thường nếu lô ít thông số")
+        so_cao = sum(1 for x in loi if x[1] == cate and x[0] == "CAO")
+        so_tb = sum(1 for x in loi if x[1] == cate and x[0] == "TB")
+        tom.append({"Mã NH": cate, "Tên ngành": ten_nh, "SKU (DATA SP)": n_sku, "Dòng DATA SP": len(sp_c),
+                    "Cột cấu hình": len(cot), "Cột có mapping": len([c for c in cot if c in ma_map]),
+                    "% cột có mapping": round(100 * len([c for c in cot if c in ma_map]) / len(cot), 1) if cot else 0.0,
+                    "Thuộc tính CMS đã map": f"{n_pid_map}/{n_pid}" if n_pid else "",
+                    "Mapping TSKT": len(t_c), "Mapping FILTER": len(f_c),
+                    "Trạng thái": "⛔ Lỗi" if so_cao else ("⚠️ Cần xem" if so_tb else "✅ Ổn")})
+    thu_tu = {"CAO": 0, "TB": 1, "THAP": 2, "TT": 3}
+    loi.sort(key=lambda x: (thu_tu.get(x[0], 9), x[1]))
+    return {"loi": pd.DataFrame(loi, columns=["Mức", "NH", "Vùng", "Vấn đề", "Số", "Chi tiết"]),
+            "nganh": pd.DataFrame(tom)}
+
+
 def giai_nghia_filter(code: str, gia_tri: str, opt: dict) -> str:
     if not la_cot_filter(code) or not gia_tri:
         return ""

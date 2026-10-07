@@ -25,17 +25,17 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-2.0 · 2026-10-07 (kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.1 · 2026-10-07 (QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
 _CSS = """<style>
 :root {
-  --ink: #0f172a; --ink-2: #334155; --ink-3: #64748b; --line: #e2e8f0; --line-2: #f1f5f9;
+  --ink: #0f172a; --ink-2: #1e293b; --ink-3: #475569; --line: #e2e8f0; --line-2: #f1f5f9;
   --bg: #ffffff; --bg-2: #f8fafc; --bg-3: #f1f5f9;
   --brand: #1e40af; --brand-2: #3b82f6; --brand-tint: #eff6ff;
-  --ok: #16a34a; --ok-tint: #ecfdf5; --warn: #d97706; --warn-tint: #fffbeb;
-  --err: #dc2626; --err-tint: #fef2f2;
+  --ok: #15803d; --ok-tint: #dcfce7; --warn: #b45309; --warn-tint: #fef3c7;
+  --err: #b91c1c; --err-tint: #fee2e2;
 }
 html, body, [class*="css"], .stApp {font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
 #MainMenu, footer {visibility: hidden;}
@@ -60,8 +60,8 @@ hr {border: 0; border-top: 1px solid var(--line); margin: 1rem 0;}
   box-shadow: 0 2px 8px rgba(15,23,42,.15);}
 .brand-bar .logo {font-weight: 800; font-size: 1.15rem; letter-spacing:-.2px; display:flex; gap:10px; align-items:center;}
 .brand-bar .logo .dot {width:10px; height:10px; border-radius:50%; background:#60a5fa; box-shadow:0 0 10px #60a5fa;}
-.brand-bar .meta {font-size: .82rem; opacity: .85; display:flex; gap:14px;}
-.brand-bar .meta .chip {background: rgba(255,255,255,.14); padding: 3px 10px; border-radius: 999px;}
+.brand-bar .meta {font-size: .84rem; display:flex; gap:14px; color:#fff;}
+.brand-bar .meta .chip {background: rgba(255,255,255,.2); color:#fff; padding: 3px 10px; border-radius: 999px; font-weight:500;}
 /* Metric tiles */
 div[data-testid="stMetric"] {background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
   padding: 10px 14px; box-shadow: 0 1px 2px rgba(15,23,42,.03);}
@@ -96,22 +96,28 @@ div[data-testid="stSegmentedControl"] button[aria-pressed="true"] {background: v
 div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {border: 1px solid var(--line);
   border-radius: 10px; overflow: hidden;}
 /* Alerts */
-div[data-testid="stAlert"] {border-radius: 10px; border: 1px solid var(--line); padding: 10px 14px;}
-div[data-testid="stAlertContentSuccess"] {background: var(--ok-tint); color: #065f46;}
-div[data-testid="stAlertContentWarning"] {background: var(--warn-tint); color: #92400e;}
-div[data-testid="stAlertContentError"] {background: var(--err-tint); color: #991b1b;}
-div[data-testid="stAlertContentInfo"] {background: var(--brand-tint); color: #1e3a8a;}
+div[data-testid="stAlert"] {border: 0; padding: 0; background: transparent;}
+div[data-testid="stAlertContainer"] {border-radius: 10px;}
+div[data-testid="stAlertContentSuccess"], div[data-testid="stAlertContentSuccess"] p {color: #14532d !important;}
+div[data-testid="stAlertContentWarning"], div[data-testid="stAlertContentWarning"] p {color: #713f12 !important;}
+div[data-testid="stAlertContentError"], div[data-testid="stAlertContentError"] p {color: #7f1d1d !important;}
+div[data-testid="stAlertContentInfo"], div[data-testid="stAlertContentInfo"] p {color: #1e3a8a !important;}
+div[data-testid="stAlert"] p {font-weight: 500;}
+div[data-testid="stCaptionContainer"], div[data-testid="stCaptionContainer"] p {color: #334155 !important;
+  opacity: 1 !important;}
+.buoc, .buoc * {color: #1e293b;}
+.canh, .canh * {color: #7f1d1d;}
 /* Sidebar */
 section[data-testid="stSidebar"] {background: var(--bg); border-right: 1px solid var(--line);}
 section[data-testid="stSidebar"] .stMarkdown {color: var(--ink-2);}
 /* Status strip */
 .status-strip {background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
   padding: 10px 14px; margin: 8px 0 14px; display: flex; gap: 18px; flex-wrap: wrap;
-  font-size: .83rem; color: var(--ink-3); align-items: center;
+  font-size: .85rem; color: var(--ink-2); align-items: center;
   box-shadow: 0 1px 2px rgba(15,23,42,.03);}
 .status-strip .st-item {display: flex; align-items: center; gap: 6px;}
 .status-strip .st-item b {color: var(--ink); font-weight: 700;}
-.status-strip .st-item.zero b {color: var(--ink-3); font-weight: 500;}
+.status-strip .st-item.zero b {color: #64748b; font-weight: 600;}
 .status-strip .st-sep {color: var(--line); font-size: 1rem;}
 /* ===== PHẢN HỒI CHUỘT / BÀN PHÍM ===== */
 .stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {cursor: pointer;
@@ -690,6 +696,57 @@ def ds() -> dict:
     return ss.ds
 
 
+def nq(chi_cate: list | None = None) -> dict:
+    """QC ngầm NHẤT QUÁN ngành: cấu hình · DATA SP · mapping TSKT/FILTER · DATA PIM (chỉ đọc, có nhớ đệm)."""
+    _, _, qd, _ = qt()
+    khoa = (ss.get("ver", 0), id(ss.data_sp), len(ss.data_sp), id(ss.map_tskt), len(ss.map_tskt), id(ss.map_filter),
+            len(ss.map_filter), id(ss.data_pim), len(ss.cau_hinh),
+            sum(len(v.get("cot", [])) for v in ss.cau_hinh.values()), len(qd or {}),
+            tuple(chi_cate) if chi_cate else None)
+    if ss.get("nq_ver") != khoa or "nq_kq" not in ss:
+        ss.nq_kq = C.kiem_tra_nhat_quan(ss.cau_hinh, ss.data_sp, ss.map_tskt, ss.map_filter, ss.opt, qd, chi_cate)
+        ss.nq_ver = khoa
+    return ss.nq_kq
+
+
+def hien_nhat_quan(d: dict, key: str, gon: bool = False) -> None:
+    """Bảng tóm tắt từng ngành + danh sách vấn đề (dùng cho QC ngầm trước/sau map và khi xem file)."""
+    L, N = d["loi"], d["nganh"]
+    if not len(N):
+        st.caption("Chưa có ngành nào để kiểm (cần DATA SP hoặc cấu hình ngành).")
+        return
+    n_cao = int((L["Mức"] == "CAO").sum()) if len(L) else 0
+    n_tb = int((L["Mức"] == "TB").sum()) if len(L) else 0
+    if n_cao:
+        st.error(f"⛔ {n_cao} lỗi nhất quán (sót cấu hình / sót mapping / mapping trỏ sai cột / FILTER thiếu option) "
+                 "— SKU hoặc giá trị sẽ bị bỏ khi map.")
+    elif n_tb:
+        st.warning(f"⚠️ {n_tb} điểm cần xem (cột chưa có mapping, thuộc tính CMS chưa map, FILTER không khớp option).")
+    else:
+        st.success(f"✔ {len(N)} ngành nhất quán: cấu hình · DATA SP · mapping TSKT/FILTER · DATA PIM khớp nhau.")
+    st.dataframe(N, hide_index=True, width="stretch", height=min(320, 42 + 35 * len(N)), column_config={
+        "% cột có mapping": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%.0f%%")})
+    if len(L):
+        hien = L[L["Mức"] != "TT"] if gon else L
+        hien = hien.assign(Mức=hien["Mức"].map(MUC_ICON).fillna(hien["Mức"]))
+        with st.expander(f"Chi tiết {len(hien)} vấn đề", expanded=not gon and bool(n_cao)):
+            st.dataframe(hien, hide_index=True, width="stretch", height=min(420, 42 + 35 * min(len(hien), 11)),
+                         column_config={"Chi tiết": st.column_config.TextColumn(width="large"),
+                                        "Số": st.column_config.NumberColumn(format="%d")})
+            st.download_button("📊 Tải báo cáo nhất quán (.xlsx)",
+                               C.xlsx_nhieu_sheet({"NGÀNH": N, "VẤN ĐỀ": L}),
+                               file_name=f"NHAT_QUAN_NGANH_{C.bay_gio()[:10]}.xlsx", key=f"nq_dl_{key}")
+
+
+def tab_nhat_quan() -> None:
+    st.caption("QC ngầm từng ngành của lô: **cấu hình cột** ↔ **DATA SP** ↔ **mapping TSKT / FILTER** ↔ **DATA PIM**. "
+               "Phát hiện ngành bị sót cấu hình/mapping, mapping trỏ sai cột, cột luôn trống, thuộc tính CMS chưa map, "
+               "cột FILTER không có option. Chỉ kiểm, **không sửa** dữ liệu.")
+    tat_ca = st.checkbox("Kiểm cả các ngành không có trong lô này (mọi ngành đã cấu hình)", key="nq_tat_ca")
+    cates = sorted(set(ss.cau_hinh) | set(ss.data_sp.CATEGORYID if len(ss.data_sp) else [])) if tat_ca else None
+    hien_nhat_quan(nq(cates), "tab")
+
+
 def kc() -> dict:
     """Kiểm chứng SKU <-> DATA SP (chỉ đọc). Tính lại khi map lại hoặc sửa/đơn vị thay đổi."""
     _, _, qd, _ = qt()
@@ -1104,6 +1161,16 @@ def khu_nap_mau() -> None:
             nap_lai_toan_bo(w, kem_lo, f.name)
             if kem_lo and st.session_state.get("tu_map_sau_nap", True):
                 chay_map_ui()
+    _oq = st.container(border=True)
+    _oq.markdown("**🧭 QC ngầm nội dung file này** (cấu hình · DATA SP · mapping · DATA PIM) — trước khi nạp")
+    if _oq.checkbox("Xem QC ngầm file này", value=False, key=f"nq_file_mau_{abs(hash(ss.get('mau_ten')))}"):
+      with _oq:
+        _ch = w.get("cau_hinh") or ss.cau_hinh
+        _mt = w["map_tskt"] if w.get("map_tskt") is not None and len(w["map_tskt"]) else ss.map_tskt
+        _mf = w["map_filter"] if w.get("map_filter") is not None and len(w["map_filter"]) else ss.map_filter
+        _dp = w["data_pim"] if w.get("data_pim") is not None and len(w["data_pim"]) else ss.data_pim
+        _sp = w["data_sp"] if w.get("data_sp") is not None and len(w["data_sp"]) else None
+        hien_nhat_quan(C.kiem_tra_nhat_quan(_ch, _sp, _mt, _mf, C.option_maps(_dp)), "file_mau", gon=True)
     st.markdown("##### Chọn vùng cần nạp — vùng không tick giữ nguyên, không bị đụng tới")
     ver = abs(hash(ss.get("mau_ten")))
     ds_lo = [(k, t, m) for k, t, m in VUNG_LO if _so_vung(w, k)]
@@ -1278,6 +1345,33 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                                  hide_index=True, height=min(300, 40 + 30 * min(len(cot_gy), 10)))
                 if ok and cid:
                     cat_them.append((C.chuan_hoa_id(cid), (cten or "").strip(), cot_gy))
+    # ---- QC ngầm cho ngành SẮP thêm/cập nhật: kiểm trước khi bấm Nạp (chỉ đọc, chưa lưu gì)
+    _moi: dict = {}
+    if ds_ng and duoc_sua_chung():
+        for c_, v_ in moi_ng.items():
+            _moi[c_] = ("thay", v_)
+    for cid_, cten_, cot_gy_ in cat_them:
+        _moi[cid_] = ("them", {"ten": cten_, "cot": [m for m, _ in cot_gy_], "ten_cot": {m: t for m, t in cot_gy_ if t}})
+    if _moi:
+        ch_tam = {c_: dict(v_, cot=list(v_.get("cot", [])), ten_cot=dict(v_.get("ten_cot", {})))
+                  for c_, v_ in ss.cau_hinh.items()}
+        for c_, (kieu, v_) in _moi.items():
+            if kieu == "thay" or c_ not in ch_tam:
+                ch_tam[c_] = {"ten": v_.get("ten", ""), "cot": list(v_["cot"]), "ten_cot": dict(v_.get("ten_cot", {}))}
+            else:
+                o_ = ch_tam[c_]
+                o_["cot"] += [m for m in v_["cot"] if m not in o_["cot"]]
+                o_["ten"] = v_.get("ten") or o_.get("ten", "")
+        sp_ds = [ss.data_sp] + [r_["data_sp"] for _, r_ in kq if r_.get("loai") == "cms" and r_.get("data_sp") is not None]
+        sp_ds += [r_["data_sp"] for _, r_ in kq if r_.get("loai") == "mau" and r_.get("data_sp") is not None]
+        sp_tam = pd.concat([x.astype(object) for x in sp_ds if x is not None and len(x)], ignore_index=True) \
+            if any(x is not None and len(x) for x in sp_ds) else ss.data_sp
+        _, _, qd_, _ = qt()
+        with st.container(border=True):
+            st.markdown(f"**🧭 QC ngầm cho {len(_moi)} ngành sắp thêm/cập nhật** — đối chiếu cấu hình mới với DATA SP · "
+                        "mapping TSKT/FILTER · DATA PIM hiện có (chưa lưu gì)")
+            hien_nhat_quan(C.kiem_tra_nhat_quan(ch_tam, sp_tam, ss.map_tskt, ss.map_filter, ss.opt, qd_, list(_moi)),
+                           f"{key}_ngmoi", gon=True)
     if co_mau:
         lay_chung = st.checkbox("File mẫu: cập nhật mapping / cấu hình / DATA PIM dùng chung (gộp theo ngành)",
                                 value=False, disabled=not duoc_sua_chung(), key=f"{key}_chung",
@@ -1527,6 +1621,17 @@ def trang_nap() -> None:
     st.divider()
     xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
     st.markdown("### ② Map")
+    if len(ss.data_sp):
+        _d = nq()
+        _L = _d["loi"]
+        _c = int((_L["Mức"] == "CAO").sum()) if len(_L) else 0
+        _t = int((_L["Mức"] == "TB").sum()) if len(_L) else 0
+        _o = st.container(border=True)
+        _o.markdown(("⛔" if _c else ("⚠️" if _t else "✅")) + f" **QC ngầm trước khi map** — {len(_d['nganh'])} ngành · "
+                    f"{_c} lỗi · {_t} cần xem (cấu hình · mapping TSKT/FILTER · DATA PIM)")
+        if _o.checkbox("Xem chi tiết QC ngầm", value=bool(_c), key="nq_truoc_map_xem2"):
+            with _o:
+                hien_nhat_quan(_d, "truoc_map", gon=True)
     cm = st.columns([1.2, 3])
     if cm[0].button("🚀 Map dữ liệu", type="primary", disabled=not xong1, key="nap_nut_map", width="stretch"):
         chay_map_ui()
@@ -1803,6 +1908,14 @@ def chay_map_ui() -> None:
     ss.map_msg = (f"✔ Map xong {r['tom_tat']['so_sku']:,} SKU · {r['tom_tat']['so_nganh']} ngành hàng · "
                   f"{r['tom_tat']['so_o']:,} ô · {time.time() - t:.1f} giây"
                   + (f" · {r['tom_tat']['map_theo_ten']:,} ô map theo tên" if r['tom_tat']['map_theo_ten'] else ""))
+    try:  # QC ngầm sau map: báo ngay nếu ngành nào sót cấu hình / mapping
+        _L = nq()["loi"]
+        _c = int((_L["Mức"] == "CAO").sum()) if len(_L) else 0
+        _t = int((_L["Mức"] == "TB").sum()) if len(_L) else 0
+        ss.map_msg += (f" · QC ngầm: ⛔ {_c} lỗi nhất quán, {_t} cần xem (tab 🧭)" if _c else
+                       (f" · QC ngầm: {_t} điểm cần xem (tab 🧭)" if _t else " · QC ngầm: ✅ nhất quán"))
+    except Exception:  # noqa: BLE001
+        pass
     st.success(ss.map_msg)
 
 
@@ -1884,8 +1997,11 @@ def trang_map() -> None:
                  "Mọi chỉnh sửa tự lưu, áp khi xuất file.")
     kcl = kc()["loi"]
     kc_n = int(kcl["Mức"].isin(["CAO", "TB"]).sum()) if len(kcl) else 0
-    (t_qc, t_kc, t_cb, t_ht, t_ds, t_ai, t_khac, t_sku, t_dv, t_rong, t_kt, t_cm, t_log) = st.tabs([
-        "🛡️ QC tổng hợp", f"✅ Kiểm chứng SKU ↔ DATA SP{' (' + str(kc_n) + ')' if kc_n else ' ✔'}", "⚠️ Cảnh báo",
+    nql = nq()["loi"]
+    nq_n = int(nql["Mức"].isin(["CAO", "TB"]).sum()) if len(nql) else 0
+    (t_qc, t_kc, t_nq, t_cb, t_ht, t_ds, t_ai, t_khac, t_sku, t_dv, t_rong, t_kt, t_cm, t_log) = st.tabs([
+        "🛡️ QC tổng hợp", f"✅ Kiểm chứng SKU ↔ DATA SP{' (' + str(kc_n) + ')' if kc_n else ' ✔'}",
+        f"🧭 Nhất quán ngành{' (' + str(nq_n) + ')' if nq_n else ' ✔'}", "⚠️ Cảnh báo",
         "📈 Độ hoàn thiện & quy tắc", "🧾 Đối soát CMS → kết quả", "🤖 Gợi ý thông minh & AI",
         "≠ Khác spec PIM (sửa)", "🔎 Theo SKU + FILTER", "📏 Đơn vị & biến đổi hàng loạt", "🚫 Không / Đang cập nhật",
         "📐 Gộp / tách kích thước", "🧩 Thuộc tính chưa map", "📜 Log map"])
@@ -1893,6 +2009,8 @@ def trang_map() -> None:
         tab_qc(k)
     with t_kc:
         tab_kiem_chung()
+    with t_nq:
+        tab_nhat_quan()
     with t_cb:
         tab_canh_bao(k)
     with t_ht:
@@ -1948,6 +2066,10 @@ def qc_tong_hop(k: dict) -> list:
         ("TB", "Kiểm chứng: không thấy nguồn / ký tự ẩn", kc_tb,
          "Giá trị không có trong DATA SP của SKU, hoặc ô chứa ký tự ẩn (tự bỏ khi xuất)",
          "Xem từng ô bên dưới (tab ✅ Kiểm chứng)", None, "kiem_chung"),
+        ("CAO", "Nhất quán ngành: sót cấu hình / sót mapping / mapping sai cột / FILTER thiếu option",
+         int((nq()["loi"]["Mức"] == "CAO").sum()) if len(nq()["loi"]) else 0,
+         "Ngành trong DATA SP không khớp cấu hình · mapping TSKT/FILTER · DATA PIM", "Xem bên dưới (tab 🧭)", None,
+         "nhat_quan"),
         ("CAO", "Thiếu model_code", s.get("thieu_model", 0), "SKU không có Mã model → không import được",
          "Sửa trực tiếp cột Mã model bên dưới", "thieu_model", "thieu_model"),
         ("CAO", "Thiếu category_code", s.get("thieu_cate", 0), "IMPORT chưa có Mã danh mục PIM",
@@ -2087,6 +2209,9 @@ def tab_qc(k: dict) -> None:
 def khu_sua_loi(kind: str, k: dict) -> None:
     if kind == "kiem_chung":
         tab_kiem_chung()
+        return
+    if kind == "nhat_quan":
+        hien_nhat_quan(nq(), "qc")
         return
     if kind in ("thieu_model", "thieu_cate"):
         _sua_import_thieu("model_code" if kind == "thieu_model" else "category_code")
@@ -4165,6 +4290,17 @@ def vung_chay() -> None:
     st.divider()
     xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
     st.markdown("### ② Map")
+    if len(ss.data_sp):
+        _d = nq()
+        _L = _d["loi"]
+        _c = int((_L["Mức"] == "CAO").sum()) if len(_L) else 0
+        _t = int((_L["Mức"] == "TB").sum()) if len(_L) else 0
+        _o = st.container(border=True)
+        _o.markdown(("⛔" if _c else ("⚠️" if _t else "✅")) + f" **QC ngầm trước khi map** — {len(_d['nganh'])} ngành · "
+                    f"{_c} lỗi · {_t} cần xem (cấu hình · mapping TSKT/FILTER · DATA PIM)")
+        if _o.checkbox("Xem chi tiết QC ngầm", value=bool(_c), key="nq_truoc_map_xem"):
+            with _o:
+                hien_nhat_quan(_d, "truoc_map_v", gon=True)
     cm = st.columns([1.2, 3])
     if cm[0].button("🚀 Map dữ liệu", type="primary", disabled=not xong1, key="nap_nut_map", width="stretch"):
         chay_map_ui()
@@ -4223,7 +4359,7 @@ try:
     _ws = f"Workspace: <b>{ss.ws}</b>"
     st.markdown(
         f'<div class="brand-bar">'
-        f'<div class="logo"><span class="dot"></span>PIM Tool <span style="opacity:.6;font-weight:500;font-size:.9rem">· CMS → PIM</span></div>'
+        f'<div class="logo"><span class="dot"></span>PIM Tool <span style="opacity:.85;font-weight:500;font-size:.9rem">· CMS → PIM</span></div>'
         f'<div class="meta"><span class="chip">👤 {ss.ten}{_ad}</span>'
         f'<span class="chip">{_ws}</span></div>'
         f'</div>', unsafe_allow_html=True)
