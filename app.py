@@ -1080,6 +1080,58 @@ def kc() -> dict:
     return ss.kc_kq
 
 
+def _doi_chieu_model_sku() -> None:
+    """Đối chiếu từng MÃ MODEL: mỗi SKU của model ↔ chính SKU đó trong DATA SP. Ô có thông tin thì hiện, không có thì để trống."""
+    if bang_trong() or not len(ss.get("data_sp", [])):
+        return
+    c = st.columns([2, 2, 3])
+    cate = c[0].selectbox("Ngành hàng", list(ss.bang), format_func=lambda x: ss.bang[x]["title"], key="dc_cate")
+    b = ss.bang[cate]
+    models = sorted({r["model"] for r in b["rows"] if r["model"]})
+    mo = c[1].selectbox("Mã model", ["Tất cả"] + models, key=f"dc_model_{cate}")
+    che = c[2].radio("Hiện", ["Kết quả map", "DATA SP gốc", "Chỉ ô khác nhau"], horizontal=True, key="dc_che")
+    tm: dict = {}
+    for cc, pid, ma in ss.map_tskt[["cate", "prop_id", "ma"]].itertuples(index=False):
+        if cc == cate:
+            tm.setdefault(pid, ma)
+    rows = [r for r in b["rows"] if mo == "Tất cả" or r["model"] == mo]
+    skus = {r["sku"] for r in rows}
+    sp = ss.data_sp[ss.data_sp.PRODUCTCODE.isin(skus)]
+    raw: dict = {}
+    for sku, pid, val in sp[["PRODUCTCODE", "PROPERTYID", "PROPVALUE"]].itertuples(index=False):
+        ma = tm.get(pid)
+        if ma and val:
+            lst = raw.setdefault((sku, ma), [])
+            if val not in lst:
+                lst.append(val)
+    cot = [m for m in C.cot_tt(b) if not C.la_cot_filter(m)]
+    out = []
+    for r in rows:
+        d = {"Model": r["model"], "SKU": r["sku"]}
+        for m in cot:
+            vm = r["vals"].get(m, "")
+            vr = C.SEP_TSKT.join(raw.get((r["sku"], m), []))
+            if che == "Kết quả map":
+                d[m] = vm
+            elif che == "DATA SP gốc":
+                d[m] = vr
+            else:
+                d[m] = f"{vm}  ≠  {vr}" if (vm or vr) and C.chuan_hoa_key(vm) != C.chuan_hoa_key(vr) else ""
+        out.append(d)
+    df = pd.DataFrame(out)
+    giu = [m for m in cot if m in df.columns and (df[m].astype(str).str.strip() != "").any()]
+    df = df[["Model", "SKU"] + giu]
+    if che == "Chỉ ô khác nhau":
+        df = df[(df[giu].astype(str) != "").any(axis=1)] if giu else df.iloc[0:0]
+    if not giu:
+        st.success("✔ Không có ô nào để hiện." if che == "Chỉ ô khác nhau" else "Chưa có ô nào có giá trị.")
+        return
+    ten = b.get("ten", {})
+    st.caption(f"{len(df):,} SKU · {len(giu)} cột có thông tin" + (" — hiện 300 SKU đầu, chọn model để xem hết" if len(df) > 300 else ""))
+    st.dataframe(df.head(300), hide_index=True, width="stretch", height=min(480, 60 + 35 * min(len(df), 12)),
+                 column_config={m: st.column_config.TextColumn(ten.get(m) or m, help=m) for m in giu})
+
+
 def tab_kiem_chung() -> None:
     d = kc()
     L, t = d["loi"], d["tk"]
@@ -1092,6 +1144,7 @@ def tab_kiem_chung() -> None:
     st.caption("Đi ngược từ **từng ô kết quả** về **DATA SP của chính SKU đó**, theo đúng mapping PROPERTYID như lúc map: "
                "giá trị TSKT phải có trong PROPVALUE của SKU, mã FILTER phải suy ra được từ CMS của SKU. "
                "Chỉ kiểm, **không sửa** dữ liệu.")
+    _doi_chieu_model_sku()
     if not len(L):
         st.success(f"✔ 100% khớp — {t.get('o', 0):,} ô của {t.get('sku', 0):,} SKU đều lấy đúng dữ liệu từ đúng SKU "
                    "trong DATA SP. Không có ký tự ẩn.")
@@ -1712,11 +1765,9 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             if cu:
                 them = [x for x in v["cot"] if x not in cu.get("cot", [])]
                 bo = [x for x in cu.get("cot", []) if x not in v["cot"]]
-                st.info(f"🏷️ Ngành **{v['ten']} ({c})** đã có cấu hình ({len(cu.get('cot', []))} cột) → file mới "
-                        f"{len(v['cot'])} cột: thêm {len(them)} · bỏ {len(bo)}" + (f" ({', '.join(bo[:6])}…)" if bo else ""))
+                st.markdown(f"🏷️ **{v['ten']} ({c})** · {len(v['cot'])} cột — thêm {len(them)} · bỏ {len(bo)}")
             else:
-                st.info(f"🏷️ Ngành **{v['ten']} ({c})** chưa có trong tool → sẽ thêm mới với {len(v['cot'])} cột thuộc tính. "
-                        "Sau đó nạp mapping TSKT/FILTER của ngành này (file CMS/mapping) để map được dữ liệu.")
+                st.markdown(f"🏷️ **{v['ten']} ({c})** · ngành mới · {len(v['cot'])} cột")
         lay_ng = st.checkbox("Cập nhật Cấu hình ngành hàng từ file mẫu ngành (dùng chung)", value=duoc_sua_chung(),
                              disabled=not duoc_sua_chung(), key=f"{key}_ng")
         if not duoc_sua_chung():
@@ -1738,9 +1789,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         with st.container(border=True):
             st.markdown(f"**➕ Thêm cấu hình ngành từ file SKU** "
                         f"({sum(len(c) for _, _, c in ds_gy_cfg):,} cột gợi ý)")
-            st.caption("Tool thấy file export PIM có kèm danh sách cột TSKT. Xác nhận **mã ngành** và **tên ngành** để "
-                       "thêm vào Cấu hình ngành (dùng chung). Ngành đã có → chỉ bổ sung cột còn thiếu, không xoá cột cũ. "
-                       "Không muốn thêm thì bỏ tick 'Áp dụng' — không ảnh hưởng việc nạp dữ liệu lô.")
+            st.caption("Xác nhận mã + tên ngành. Ngành đã có chỉ bổ sung cột thiếu. Không muốn thêm thì bỏ tick «Áp dụng».")
             for i, (ten_file, cate_gy, cot_gy) in enumerate(ds_gy_cfg):
                 st.markdown(f"**📄 {ten_file}** — {len(cot_gy)} cột thuộc tính")
                 cols = st.columns([1.2, 2.5, 1])
