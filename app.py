@@ -45,7 +45,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-2.3 · 2026-10-07 (logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.4 · 2026-10-07 (giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -203,6 +203,90 @@ div[data-testid="stForm"] {background: var(--bg); border: 1px solid var(--line);
   padding: 14px 16px; margin: 8px 0 12px; box-shadow: 0 1px 2px rgba(15,23,42,.03);}
 .card-h {font-weight: 700; color: var(--ink); font-size: 1.02rem;}
 .card-s {color: var(--ink-3); font-size: .88rem;}
+/* ================= GIAO DIỆN DỄ ĐỌC (web-2.4) — chỉ CSS, không đổi logic ================= */
+/* Chữ & nút to, rõ, dễ bấm */
+p, li, .stMarkdown, label, .stCheckbox label p, .stRadio label p {font-size: 1rem;}
+h3 {font-size: 1.3rem; font-weight: 700;}
+h4 {font-size: 1.12rem;}
+.stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {min-height: 44px; font-size: 1rem;
+  font-weight: 600; padding: 8px 18px;}
+.stButton>button p, .stDownloadButton>button p, .stFormSubmitButton>button p {font-size: 1rem; font-weight: 600;}
+div[data-testid="stTextInput"] input, div[data-testid="stNumberInput"] input, div[data-testid="stTextArea"] textarea,
+div[data-baseweb="select"] > div {font-size: 1rem; min-height: 44px;}
+label[data-baseweb="checkbox"] > span:first-child {transform: scale(1.15);}
+/* 3 vùng làm việc: nút lớn, rõ vùng đang ở */
+div[data-testid="stButtonGroup"] button {min-height: 54px; font-size: 1.08rem !important; font-weight: 700;}
+div[data-testid="stButtonGroup"] button p {font-size: 1.08rem !important; font-weight: 700;}
+/* TAB: xuống dòng thành các nút viên thuốc — thấy hết tab, không phải cuộn ngang, tab đang chọn nổi bật */
+div[data-baseweb="tab-list"] {flex-wrap: wrap; gap: 8px; border-bottom: 0; padding: 4px 0 10px; overflow: visible !important;}
+div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] {display: none !important;}
+button[data-baseweb="tab"] {border: 1.5px solid var(--line); border-radius: 999px !important; background: var(--bg);
+  padding: 8px 16px !important; min-height: 42px; margin: 0 !important;}
+button[data-baseweb="tab"] p {font-size: .98rem !important; font-weight: 600; color: var(--ink-2);}
+button[data-baseweb="tab"]:hover {border-color: var(--brand-2); background: var(--brand-tint);}
+button[data-baseweb="tab"][aria-selected="true"] {background: var(--brand) !important; border-color: var(--brand);
+  box-shadow: 0 2px 8px rgba(30,64,175,.28);}
+button[data-baseweb="tab"][aria-selected="true"] p {color: #fff !important;}
+div[data-testid="stTabs"] [data-baseweb="tab-panel"] {padding-top: 6px;}
+div[data-testid="stTabs"] [role="tablist"] {flex-wrap: wrap !important; gap: 8px; padding: 4px 2px 10px;
+  border-bottom: 0 !important; overflow: visible !important; width: 100% !important;}
+div[data-testid="stTabs"] [role="tablist"]::before, div[data-testid="stTabs"] [role="tablist"]::after {display: none;}
+div[data-testid="stTabs"] > div:first-child {overflow: visible !important; border-bottom: 0 !important;}
+div[data-testid="stTabs"] .react-aria-SelectionIndicator {display: none !important;}
+div[data-testid="stTab"] {border: 1.5px solid var(--line) !important; border-radius: 999px !important;
+  background: var(--bg); padding: 8px 16px !important; min-height: 42px; margin: 0 !important; cursor: pointer;
+  display: flex; align-items: center; transition: background .12s, border-color .12s, box-shadow .12s;}
+div[data-testid="stTab"] p {font-size: .98rem !important; font-weight: 600 !important; color: var(--ink-2) !important;
+  white-space: nowrap;}
+div[data-testid="stTab"]:hover {border-color: var(--brand-2) !important; background: var(--brand-tint);}
+div[data-testid="stTab"][aria-selected="true"] {background: var(--brand) !important; border-color: var(--brand) !important;
+  box-shadow: 0 2px 8px rgba(30,64,175,.28);}
+div[data-testid="stTab"][aria-selected="true"] p {color: #fff !important;}
+div[data-testid="stTab"]:focus-visible {outline: 3px solid #93c5fd !important; outline-offset: 2px;}
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * {white-space: normal !important;
+  overflow: visible !important; text-overflow: clip !important; line-height: 1.3 !important;}
+[data-testid="stMetricLabel"] p {font-size: .9rem !important; color: var(--ink-2) !important;}
+div[data-testid="stMetric"] {min-height: 100%;}
+.stApp h1 {font-size: 1.7rem !important; font-weight: 800; margin: .2rem 0 .6rem !important;}
+.stApp h1 + div, .stApp h1 span {font-size: inherit;}
+section[data-testid="stSidebar"] .stButton>button {font-size: .95rem; padding: 6px 10px;}
+section[data-testid="stSidebar"] .stButton>button p {white-space: nowrap; font-size: .95rem;}
+/* CHỮ DÀI: thu gọn còn ~2 dòng (mờ dần) — RÊ CHUỘT / CHẠM vào thì hiện đầy đủ, nổi lên cho dễ đọc */
+div[data-testid="stCaptionContainer"], .buoc, div[data-testid="stAlertContainer"] {
+  transition: box-shadow .15s, background .15s;}
+div[data-testid="stCaptionContainer"] {max-height: 4.7em; overflow: hidden; cursor: help; border-radius: 8px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 3.2em, transparent 4.7em);
+          mask-image: linear-gradient(to bottom, #000 3.2em, transparent 4.7em);}
+.buoc {max-height: 5.4em; overflow: hidden; cursor: help;
+  -webkit-mask-image: linear-gradient(to bottom, #000 3.9em, transparent 5.4em);
+          mask-image: linear-gradient(to bottom, #000 3.9em, transparent 5.4em);}
+div[data-testid="stAlertContainer"] {max-height: 6.2em; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 4.6em, transparent 6.2em);
+          mask-image: linear-gradient(to bottom, #000 4.6em, transparent 6.2em);}
+.buoc:hover, .buoc:active, div[data-testid="stAlertContainer"]:hover, div[data-testid="stAlertContainer"]:active {
+  max-height: none; -webkit-mask-image: none; mask-image: none; position: relative; z-index: 5;
+  box-shadow: 0 6px 22px rgba(15,23,42,.16);}
+/* Chú thích: hiện đầy đủ NỔI ĐÈ lên trên, không đẩy nút bên dưới (giao diện không bị nhảy) */
+div[data-testid="stCaptionContainer"]:hover, div[data-testid="stCaptionContainer"]:active {overflow: visible;
+  -webkit-mask-image: none; mask-image: none; position: relative; z-index: 30;}
+div[data-testid="stCaptionContainer"]:hover > *, div[data-testid="stCaptionContainer"]:active > * {
+  position: relative; background: #fff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 8px 12px;
+  margin: -9px -13px; box-shadow: 0 10px 28px rgba(15,23,42,.18);}
+div[data-testid="stElementContainer"]:has(> div[data-testid="stCaptionContainer"]:hover) {z-index: 30; position: relative;}
+div[data-testid="stCaptionContainer"] p {font-size: .93rem; line-height: 1.55;}
+/* VÙNG đang trỏ chuột: viền xanh + bóng → biết đang làm ở khung nào */
+div[data-testid="stExpander"], div[data-testid="stForm"], div[data-testid="stVerticalBlockBorderWrapper"] {
+  transition: border-color .15s, box-shadow .15s;}
+div[data-testid="stExpander"]:hover, div[data-testid="stForm"]:hover {border-color: var(--brand-2) !important;
+  box-shadow: 0 4px 18px rgba(30,64,175,.12);}
+div[data-testid="stExpander"] summary p {font-size: 1.02rem; font-weight: 600;}
+div[data-testid="stExpander"] details[open] > summary {background: var(--brand-tint); border-bottom: 1px solid var(--line);}
+/* Ô bảng số liệu & thanh trạng thái to hơn chút */
+div[data-testid="stMetricValue"] {font-size: 1.5rem;}
+div[data-testid="stMetricLabel"] p {font-size: .9rem !important;}
+.status-strip {font-size: .95rem;}
+/* Thông báo rõ: chữ đậm vừa, cỡ chuẩn */
+div[data-testid="stAlert"] p {font-size: 1rem; line-height: 1.55;}
 </style>"""
 st.markdown(re.sub(r"\n\s*\n", "\n", _CSS), unsafe_allow_html=True)
 
@@ -971,6 +1055,10 @@ def so_cho_duyet() -> int:
 def thanh_ben() -> None:
     with st.sidebar:
         st.markdown(f"### PIM Tool\n👤 **{ss.ten}** (`{ss.user}`){' · 🛡️ admin' if ss.admin else ''}")
+        if st.toggle("🔎 Chữ to hơn (dễ đọc)", key="chu_to", help="Phóng to toàn bộ chữ và nút trong app."):
+            st.markdown("<style>html{font-size:18.5px !important}.stApp p,.stApp label,.stApp li{font-size:1.08rem}"
+                        "div[data-testid=stTab] p{font-size:1.05rem !important}</style>", unsafe_allow_html=True)
+        st.caption("💡 Chữ hướng dẫn dài được thu gọn — **rê chuột hoặc chạm vào** để đọc đầy đủ.")
         if ss.admin:
             tk = list(ds_tai_khoan())
             chon = st.selectbox("Workspace đang xem", tk, index=tk.index(ss.ws) if ss.ws in tk else 0,

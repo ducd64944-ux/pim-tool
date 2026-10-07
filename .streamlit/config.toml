@@ -15,7 +15,7 @@ linkColor = "#1e40af"
 baseRadius = "8px"
 buttonRadius = "8px"
 font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-baseFontSize = 15
+baseFontSize = 16
 dataframeHeaderBackgroundColor = "#f1f5f9"
 dataframeBorderColor = "#e2e8f0"
 greenColor = "#16a34a"
