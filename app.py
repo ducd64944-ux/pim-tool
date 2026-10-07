@@ -110,7 +110,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-2.7 · 2026-10-07 (hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.8 · 2026-10-07 (nút ↩ Hoàn tác lần vừa rồi + hoàn tác theo cột · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -687,6 +687,8 @@ def ap_settings(st_: dict) -> None:
     ss.map_ten = "tat"
     ss.duyet_ten = list(st_.get("duyet_ten", []))  # các "ngành\tmã" người dùng đã duyệt cho phép vào file import
     ss.luc_luu = st_.get("luc_luu", "")
+    ss.hoan_tac = list(st_.get("hoan_tac", []))
+    ss._tt = _trang_thai_sua()
     ss.chon_nganh = dict(st_.get("chon_nganh", {}))
 
 
@@ -710,11 +712,107 @@ def nap_workspace() -> None:
     bump()
 
 
+def _trang_thai_sua() -> dict:
+    """Ảnh chụp phần 'chỉnh tay' (sửa tay · đơn vị/biến đổi · Không/Đang cập nhật) để so sánh & hoàn tác."""
+    return {"sua": {"\t".join(k): v for k, v in ss.sua.items()},
+            "dv": {"\t".join(k): v for k, v in ss.dv.items() if v},
+            "rong": {k: v for k, v in ss.rong.items() if v and v[0] != C.HD_GIU}}
+
+
+def ghi_nhan_hoan_tac(nhan: str) -> None:
+    """Gọi trước mỗi lần lưu: nếu phần chỉnh tay đổi so với lần trước -> ghi bản ĐẢO (chỉ phần khác) để hoàn tác."""
+    cur, prev = _trang_thai_sua(), ss.get("_tt")
+    ss._tt = cur
+    if prev is None or cur == prev:
+        return
+    d = {}
+    for ph in ("sua", "dv", "rong"):
+        a, b = prev.get(ph, {}), cur.get(ph, {})
+        x = {k: a.get(k) for k in set(a) | set(b) if a.get(k) != b.get(k)}
+        if x:
+            d[ph] = x
+    if d:
+        ls = list(ss.get("hoan_tac", []))
+        ls.append({"luc": C.bay_gio(), "nhan": nhan, "d": d,
+                   "so": sum(len(v) for v in d.values())})
+        ss.hoan_tac = ls[-15:]
+
+
+def hoan_tac_lan_cuoi() -> None:
+    ls = list(ss.get("hoan_tac", []))
+    if not ls:
+        return
+    e = ls.pop()
+    for ph, x in e["d"].items():
+        dic = {"sua": ss.sua, "dv": ss.dv, "rong": ss.rong}[ph]
+        for k, v in x.items():
+            kk = tuple(k.split("\t")) if ph != "rong" else k
+            if v is None:
+                dic.pop(kk, None)
+            else:
+                dic[kk] = v
+    ss.hoan_tac = ls
+    ss._tt = _trang_thai_sua()
+    bump()
+    luu(["settings"], f"Hoàn tác: {e['nhan']}")
+
+
+def hoan_tac_theo_cot(chon: list) -> None:
+    """chon: [(ngành|*, mã)] -> bỏ sửa tay + đơn vị + biến đổi hàng loạt của các cột đó."""
+    for c, m in chon:
+        for k in [k for k in ss.sua if k[0] == c and k[2] == m]:
+            ss.sua.pop(k, None)
+        ss.dv.pop((c, m), None)
+        ss.dv.pop((c, m, "bd"), None)
+    bump()
+    luu(["settings"], f"Hoàn tác {len(chon)} cột")
+
+
+def khu_hoan_tac() -> None:
+    ls = list(ss.get("hoan_tac", []))
+    with st.expander(f"↩ Hoàn tác ({len(ls)} thao tác gần nhất)", expanded=False):
+        if ls:
+            e = ls[-1]
+            st.write(f"Lần vừa rồi: **{e['nhan']}** — {e['so']} mục · {e['luc']}")
+            if st.button("↩ Hoàn tác lần vừa rồi", type="primary", key="btn_hoan_tac"):
+                hoan_tac_lan_cuoi()
+                st.rerun()
+            if len(ls) > 1:
+                st.caption("Các lần trước đó (bấm hoàn tác lần lượt từ mới → cũ): " +
+                           " · ".join(x["nhan"] for x in reversed(ls[:-1])))
+        else:
+            st.caption("Chưa có thao tác nào để hoàn tác.")
+        st.markdown("**Hoàn tác theo cột** — chọn cột (dài, rộng, cao…) cần trả về đúng giá trị map từ CMS:")
+        nhom: dict = {}
+        for (c, _s, m), _v in ss.sua.items():
+            nhom.setdefault((c, m), [0, "", ""])[0] += 1
+        for k, v in ss.dv.items():
+            if v and len(k) in (2, 3):
+                x = nhom.setdefault((k[0], k[1]), [0, "", ""])
+                x[1 if len(k) == 2 else 2] = "có"
+        if not nhom:
+            st.caption("Không có cột nào đang được chỉnh.")
+            return
+        df = pd.DataFrame([{"Hoàn tác": False, "Ngành": c, "Cột": m,
+                            "Tên cột": ss.bang.get(c, {}).get("ten", {}).get(m, ""),
+                            "Ô sửa tay": a, "Đơn vị": u, "Biến đổi hàng loạt": bd}
+                           for (c, m), (a, u, bd) in sorted(nhom.items())])
+        ed = st.data_editor(df, hide_index=True, width="stretch", key=f"ed_ht_cot_{len(ss.sua)}_{len(ss.dv)}",
+                            disabled=[c for c in df.columns if c != "Hoàn tác"])
+        if st.button("↩ Hoàn tác các cột đã tick", key="btn_ht_cot"):
+            chon = [(r["Ngành"], r["Cột"]) for _, r in ed.iterrows() if r["Hoàn tác"]]
+            if chon:
+                hoan_tac_theo_cot(chon)
+                st.rerun()
+            else:
+                st.warning("Chưa tick cột nào.")
+
+
 def settings_bytes() -> bytes:
     return json_to_bytes({"sua": {"\t".join(k): v for k, v in ss.sua.items()},
                           "don_vi": {"\t".join(k): v for k, v in ss.dv.items() if v},
                           "rong": {k: v for k, v in ss.rong.items() if v and v[0] != C.HD_GIU},
-                          "duyet_ten": list(ss.get("duyet_ten", [])), "cai_dat_ver": 3, "luc_luu": C.bay_gio(),
+                          "duyet_ten": list(ss.get("duyet_ten", [])), "hoan_tac": list(ss.get("hoan_tac", [])), "cai_dat_ver": 3, "luc_luu": C.bay_gio(),
                           "chon_nganh": ss.get("chon_nganh", {}),
                           "nguoi_luu": ss.user})
 
@@ -783,6 +881,7 @@ def luu(phan: list, thong_diep: str, them_file: dict | None = None, ghi_de: dict
     'shared:cau_hinh','shared:map_tskt','shared:map_filter','shared:data_pim',…).
     Nhiều máy cùng lúc: file máy khác vừa sửa được GỘP tự động; không gộp được (dữ liệu lô) thì hỏi."""
     files = {}
+    ghi_nhan_hoan_tac(thong_diep)
     for p in phan:
         if p.startswith("shared:"):
             k = p.split(":", 1)[1]
@@ -2343,6 +2442,7 @@ def trang_map() -> None:
         bump()
         luu(["settings"], "Xoá hết sửa tay")
         st.rerun()
+    khu_hoan_tac()
     sk_, gt_, qd_, n_r = qt()
     c[2].caption(f"Quy tắc sửa CMS: {len(sk_) + len(gt_)} (trong đó {n_r} đề xuất của bạn chờ duyệt) · "
                  f"{ss.meta.get('tom_tat', {}).get('o_sua_theo_quy_tac', 0)} ô đã sửa theo quy tắc. "
