@@ -12,7 +12,9 @@ import random
 import secrets
 import re
 import time
+import traceback
 from collections import Counter
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import streamlit as st
@@ -35,6 +37,10 @@ def _b64_file(ten: str) -> str:
 LOGO_B64 = _b64_file("logo_nho.png") or _b64_file("logo.png")
 DMX_CHU_B64 = _b64_file("dmx_chu.png")       # chữ "Điện máy XANH" nền trong suốt
 DMX_BANNER_B64 = _b64_file("dmx_banner.png")
+LOI_VUI_B64 = _b64_file("loi_vui.png")  # hình vui khi lỗi hệ thống (non-admin)
+
+# Múi giờ Việt Nam (UTC+7)
+_TZ_VN = timezone(timedelta(hours=7))
 
 
 def logo_img(px: int) -> str:
@@ -135,8 +141,46 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-3.3 · 2026-10-07 (tối ưu UI: xóa hiển thị trùng lặp, dọn code thừa, thanh kho tương tác thay thế hoàn toàn status strip cũ)"
+APP_VERSION = "web-3.4 · 2026-10-07"
 ss = st.session_state
+
+
+# ============================================================================
+# HỆ THỐNG GHI LỖI (chỉ admin xem được)
+# ============================================================================
+def _ghi_loi(err: Exception, noi: str = "") -> None:
+    """Ghi lỗi vào ss._nhat_ky_loi cho admin xem. Non-admin không thấy chi tiết."""
+    ss.setdefault("_nhat_ky_loi", [])
+    ss._nhat_ky_loi.append({
+        "luc": datetime.now(_TZ_VN).strftime("%H:%M:%S %d/%m"),
+        "noi": noi,
+        "loai": type(err).__name__,
+        "chi_tiet": traceback.format_exception(err)[-1].strip(),
+        "day_du": "".join(traceback.format_exception(err))
+    })
+    # giữ tối đa 50 lỗi gần nhất
+    if len(ss._nhat_ky_loi) > 50:
+        ss._nhat_ky_loi = ss._nhat_ky_loi[-50:]
+
+
+def _hien_loi_vui() -> None:
+    """Non-admin: hiện hình vui thay vì lỗi kỹ thuật."""
+    if LOI_VUI_B64:
+        st.markdown(
+            '<div style="text-align:center;padding:40px 20px">'
+            f'<img src="data:image/png;base64,{LOI_VUI_B64}" style="max-width:360px;width:100%;border-radius:16px;'
+            'box-shadow:0 8px 32px rgba(0,0,0,.15)" alt="Hệ thống đang bảo trì">'
+            '<p style="margin-top:16px;font-size:1.1rem;color:#475569;font-weight:600">'
+            '🔧 Hệ thống đang xử lý — vui lòng thử lại sau ít phút!</p></div>',
+            unsafe_allow_html=True)
+    else:
+        st.info("🔧 Hệ thống đang xử lý — vui lòng thử lại sau ít phút!")
+
+
+def _gio_vn() -> str:
+    """Trả về giờ Việt Nam dạng '11:01 PM giờ Việt Nam · UTC+7'."""
+    now = datetime.now(_TZ_VN)
+    return now.strftime("%-I:%M %p").replace("AM", "AM").replace("PM", "PM") + " giờ Việt Nam · UTC+7"
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
 _CSS = """<style>
@@ -148,11 +192,13 @@ _CSS = """<style>
   --err: #b91c1c; --err-tint: #fee2e2;
 }
 html, body, [class*="css"], .stApp {font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
-#MainMenu, footer {visibility: hidden;}
+#MainMenu, footer, .viewerBadge_container__r5tak, .viewerBadge_link__qRIco,
+div[data-testid="manage-app-button"], .stDeployButton {display: none !important; visibility: hidden !important;}
+footer {visibility: hidden !important;}
 /* Giữ header (chứa chỉ báo "Đang chạy…" khi bấm) nhưng trong suốt; ẩn nút Deploy/menu */
 header[data-testid="stHeader"] {background: transparent; height: 2.4rem;}
 div[data-testid="stToolbar"] {visibility: hidden;}
-div[data-testid="stStatusWidget"] {visibility: visible; background: #fff; border: 1px solid var(--line);
+div[data-testid="stStatusWidget"] {background: #fff; border: 1px solid var(--line);
   border-radius: 999px; padding: 2px 10px; box-shadow: 0 2px 8px rgba(15,23,42,.12);}
 div[data-testid="stDecoration"] {background: linear-gradient(90deg, #1e40af, #60a5fa); height: 3px;}
 .block-container {padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1480px;}
@@ -396,7 +442,15 @@ section[data-testid="stFileUploaderDropzone"] {border-color: #64748b;}
   .brand-bar, .brand-bar .meta {flex-wrap: wrap;}
   .brand-bar .meta .chip {white-space: nowrap;}
 }
-</style>"""
+</style>
+<script>
+(function(){var u=function(){var c=document.querySelectorAll('.brand-bar .chip');if(!c.length)return;
+var t=c[c.length-1];if(!t.textContent.includes('giờ Việt Nam'))return;
+var d=new Date();var h=d.getUTCHours()+7;if(h>=24)h-=24;var m=d.getUTCMinutes();
+var ap=h>=12?'PM':'AM';var h12=h%12||12;
+t.textContent='🕐 '+h12+':'+(m<10?'0':'')+m+' '+ap+' giờ Việt Nam · UTC+7';};
+u();setInterval(u,30000);})();
+</script>"""
 st.markdown(re.sub(r"\n\s*\n", "\n", _CSS), unsafe_allow_html=True)
 
 
@@ -1027,7 +1081,10 @@ def thanh_luu_lai() -> None:
     if not x or ss.get("xung_dot"):
         return
     c = st.columns([5, 1.6], vertical_alignment="center")
-    c[0].markdown("⚠️ **Chưa lưu được lần gần nhất** — dữ liệu vẫn còn trong phiên làm việc này.")
+    if ss.get("admin"):
+        c[0].markdown("⚠️ **Chưa lưu được lần gần nhất** — dữ liệu vẫn còn trong phiên làm việc này.")
+    else:
+        c[0].markdown("⚠️ **Chưa lưu được** — bấm nút bên cạnh để thử lại.")
     if c[1].button("🔁 Lưu lại", type="primary", key="btn_luu_lai"):
         luu(*x)
         st.rerun()
@@ -1404,7 +1461,10 @@ def so_cho_duyet() -> int:
 
 def thanh_ben() -> None:
     with st.sidebar:
-        st.markdown(f"### PIM Tool\n👤 **{ss.ten}** (`{ss.user}`){' · 🛡️ admin' if ss.admin else ''}")
+        if ss.admin:
+            st.markdown(f"### PIM Tool\n👤 **{ss.ten}** (`{ss.user}`) · 🛡️ admin")
+        else:
+            st.markdown(f"### PIM Tool\n👤 **{ss.ten}**")
         if st.toggle("🔎 Chữ to hơn (dễ đọc)", key="chu_to", help="Phóng to toàn bộ chữ và nút trong app."):
             st.markdown("<style>html{font-size:18.5px !important}.stApp p,.stApp label,.stApp li{font-size:1.08rem}"
                         "div[data-testid=stTab] p{font-size:1.05rem !important}</style>", unsafe_allow_html=True)
@@ -1427,12 +1487,16 @@ def thanh_ben() -> None:
                        f"✅ {dm.get(C.DX_DUYET, 0)} duyệt · ❌ {dm.get(C.DX_TU_CHOI, 0)} từ chối")
         st.divider()
         S = tao_store()
-        if S.backend == "local":
-            st.warning("Chưa cấu hình GITHUB_TOKEN → đang lưu TẠM trên máy chủ (mất khi app khởi động lại).")
-        st.caption(f"Lưu trữ: {S.mo_ta}")
-        st.caption(f"Lần lưu gần nhất: {ss.get('luc_luu') or '—'}")
+        if ss.admin:
+            if S.backend == "local":
+                st.warning("Chưa cấu hình GITHUB_TOKEN → đang lưu TẠM trên máy chủ (mất khi app khởi động lại).")
+            st.caption(f"Lưu trữ: {S.mo_ta}")
+            st.caption(f"Lần lưu gần nhất: {ss.get('luc_luu') or '—'}")
         if ss.get("chua_luu"):
-            st.error("Có thay đổi CHƯA lưu.")
+            if ss.admin:
+                st.error("Có thay đổi CHƯA lưu.")
+            else:
+                st.warning("⚠️ Nhớ lưu trước khi thoát.")
             if st.button("💾 Lưu lại ngay", width="stretch"):
                 luu(["import", "data_sp", "spec", "ket_qua", "settings"], "Lưu thủ công")
                 st.rerun()
@@ -1446,6 +1510,18 @@ def thanh_ben() -> None:
                 del ss[k]
             st.rerun()
         the_lien_he()
+        # Admin: xem nhật ký lỗi
+        if ss.admin and ss.get("_nhat_ky_loi"):
+            st.divider()
+            with st.expander(f"🔴 Nhật ký lỗi ({len(ss._nhat_ky_loi)})"):
+                for e in reversed(ss._nhat_ky_loi[-10:]):
+                    st.markdown(f"**{e['luc']}** — `{e['loai']}` tại {e['noi']}")
+                    st.caption(e["chi_tiet"])
+                    with st.expander("Chi tiết đầy đủ", expanded=False):
+                        st.code(e["day_du"], language="python")
+                if st.button("🧹 Xóa nhật ký lỗi", key="xoa_loi"):
+                    ss._nhat_ky_loi = []
+                    st.rerun()
 
 
 def _chan_nhanh() -> list:
@@ -5088,6 +5164,10 @@ if ss.get("ws_da_nap") != ss.ws:
     with st.spinner(f"Đang tải workspace {ss.ws}…"):
         nap_workspace()
 thanh_ben()
+# Non-admin: ẩn chỉ báo hệ thống (Streamlit running/error indicators)
+if not ss.get("admin"):
+    st.markdown('<style>div[data-testid="stStatusWidget"]{display:none !important;}'
+                'div[data-testid="stDecoration"]{display:none !important;}</style>', unsafe_allow_html=True)
 hien_xung_dot()
 VUNG = ["🚀 Chạy pipeline", "🔍 Kiểm tra & Đối chiếu", "📋 Quản lý dữ liệu"]
 if "vung" not in ss and ss.get("_vung_giu") in VUNG:  # giữ vùng đang làm khi ô chọn vùng bị xoá trạng thái
@@ -5097,16 +5177,22 @@ if ss.get("chuyen_vung") in VUNG:  # nhảy sang vùng khác (vd: map xong -> sa
 ss.setdefault("vung", VUNG[0])
 if ss.vung not in VUNG:
     ss.vung = VUNG[0]
-# Brand bar: logo + user + workspace (gửi sếp xem cho đẹp)
+# Brand bar: admin = đầy đủ thông tin; non-admin = tên + giờ thực
 try:
-    _ad = " · 🛡️ Admin" if ss.get("admin") else ""
-    _ws = f"Workspace: <b>{ss.ws}</b>"
+    _logo_html = dmx_chu_img(30) or (f'<span class="mark">{logo_img(34)}</span>')
+    if ss.get("admin"):
+        _ad = " · 🛡️ Admin"
+        _ws = f"Workspace: <b>{ss.ws}</b>"
+        _meta = (f'<span class="chip">👤 {ss.ten}{_ad}</span>'
+                 f'<span class="chip">{_ws}</span>')
+    else:
+        _meta = (f'<span class="chip">👤 {ss.ten}</span>'
+                 f'<span class="chip">🕐 {_gio_vn()}</span>')
     st.markdown(
         f'<div class="brand-bar">'
-        f'<div class="logo">{dmx_chu_img(30) or ('<span class="mark">' + logo_img(34) + '</span>')}'
+        f'<div class="logo">{_logo_html}'
         f'<span class="sep"></span>PIM Tool <span style="opacity:.9;font-weight:500;font-size:.9rem">· CMS → PIM</span></div>'
-        f'<div class="meta"><span class="chip">👤 {ss.ten}{_ad}</span>'
-        f'<span class="chip">{_ws}</span></div>'
+        f'<div class="meta">{_meta}</div>'
         f'</div>', unsafe_allow_html=True)
 except Exception:
     pass
@@ -5114,27 +5200,41 @@ except Exception:
 st.segmented_control("Vùng làm việc", VUNG, key="vung", required=True, width="stretch", label_visibility="collapsed")
 ss._vung_giu = ss.vung
 
-# Thanh trạng thái: card ngang với màu tắt khi 0
 try:
-    _s_imp = len(ss.get('import', []))
-    _s_dsp = len(ss.get('data_sp', []))
-    _s_spec = ss.spec.sku.nunique() if ('spec' in ss and len(ss.spec)) else 0
-    _s_bang_sku = sum(len(b.get('rows', [])) for b in ss.get('bang', {}).values())
-    _s_bang_cate = len(ss.get('bang', {}))
-    _s_ch = len(ss.get('cau_hinh', {}))
-    _s_mt = len(ss.get('map_tskt', []))
-    _s_mf = len(ss.get('map_filter', []))
-    thanh_kho([("import", "IMPORT", _s_imp, "SKU"), ("data_sp", "DATA SP", _s_dsp, "dòng"),
-               ("spec", "Spec cũ", _s_spec, "SKU"), ("bang", "Kết quả map", _s_bang_sku, f"SKU · {_s_bang_cate} ngành"),
-               ("cau_hinh", "Cấu hình", _s_ch, "ngành"), ("map_tskt", "Mapping TSKT", _s_mt, "dòng"),
-               ("map_filter", "FILTER", _s_mf, "dòng")])
-except Exception:
-    pass
-thanh_luu_lai()
-thanh_hoan_tac()
-if ss.vung == VUNG[0]:
-    vung_chay()
-elif ss.vung == VUNG[1]:
-    trang_map()
-else:
-    vung_du_lieu()
+    # Thanh trạng thái: card ngang với màu tắt khi 0
+    try:
+        _s_imp = len(ss.get('import', []))
+        _s_dsp = len(ss.get('data_sp', []))
+        _s_spec = ss.spec.sku.nunique() if ('spec' in ss and len(ss.spec)) else 0
+        _s_bang_sku = sum(len(b.get('rows', [])) for b in ss.get('bang', {}).values())
+        _s_bang_cate = len(ss.get('bang', {}))
+        _s_ch = len(ss.get('cau_hinh', {}))
+        _s_mt = len(ss.get('map_tskt', []))
+        _s_mf = len(ss.get('map_filter', []))
+        thanh_kho([("import", "IMPORT", _s_imp, "SKU"), ("data_sp", "DATA SP", _s_dsp, "dòng"),
+                   ("spec", "Spec cũ", _s_spec, "SKU"), ("bang", "Kết quả map", _s_bang_sku, f"SKU · {_s_bang_cate} ngành"),
+                   ("cau_hinh", "Cấu hình", _s_ch, "ngành"), ("map_tskt", "Mapping TSKT", _s_mt, "dòng"),
+                   ("map_filter", "FILTER", _s_mf, "dòng")])
+    except Exception:
+        pass
+    thanh_luu_lai()
+    thanh_hoan_tac()
+    if ss.vung == VUNG[0]:
+        vung_chay()
+    elif ss.vung == VUNG[1]:
+        trang_map()
+    else:
+        vung_du_lieu()
+except Exception as _e_main:
+    _ghi_loi(_e_main, "Vùng chính")
+    if ss.get("admin"):
+        st.error(f"**Lỗi hệ thống:** `{type(_e_main).__name__}: {_e_main}`")
+        with st.expander("Chi tiết lỗi"):
+            st.code("".join(traceback.format_exception(_e_main)), language="python")
+    else:
+        _hien_loi_vui()
+
+# Footer: admin thấy version, non-admin thấy branding sạch
+if ss.get("admin"):
+    st.caption(f"<div style='text-align:center;margin-top:2rem;color:#94a3b8;font-size:.78rem'>"
+               f"PIM Tool {APP_VERSION}</div>", unsafe_allow_html=True)
