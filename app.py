@@ -28,11 +28,8 @@ from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, g
 APP_VERSION = "web-2.0 · 2026-10-07 (kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
-st.markdown("""
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
+# CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
+_CSS = """<style>
 :root {
   --ink: #0f172a; --ink-2: #334155; --ink-3: #64748b; --line: #e2e8f0; --line-2: #f1f5f9;
   --bg: #ffffff; --bg-2: #f8fafc; --bg-3: #f1f5f9;
@@ -56,7 +53,6 @@ h3 {font-weight: 600; font-size: 1rem; color: var(--ink); margin: .6rem 0 .3rem;
 h4, h5, h6 {font-weight: 600; color: var(--ink-2);}
 p, li, .stMarkdown {color: var(--ink-2); line-height: 1.55;}
 hr {border: 0; border-top: 1px solid var(--line); margin: 1rem 0;}
-
 /* Brand bar */
 .brand-bar {background: linear-gradient(90deg, #0f172a 0%, #1e40af 100%);
   color: #fff; padding: 12px 20px; border-radius: 12px; margin-bottom: 14px;
@@ -66,14 +62,12 @@ hr {border: 0; border-top: 1px solid var(--line); margin: 1rem 0;}
 .brand-bar .logo .dot {width:10px; height:10px; border-radius:50%; background:#60a5fa; box-shadow:0 0 10px #60a5fa;}
 .brand-bar .meta {font-size: .82rem; opacity: .85; display:flex; gap:14px;}
 .brand-bar .meta .chip {background: rgba(255,255,255,.14); padding: 3px 10px; border-radius: 999px;}
-
 /* Metric tiles */
 div[data-testid="stMetric"] {background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
   padding: 10px 14px; box-shadow: 0 1px 2px rgba(15,23,42,.03);}
 div[data-testid="stMetricValue"] {font-size: 1.3rem; font-weight: 700; color: var(--ink);}
 div[data-testid="stMetricLabel"] {font-size: .78rem; color: var(--ink-3);}
 div[data-testid="stMetricLabel"] p {font-size: .78rem; color: var(--ink-3);}
-
 /* Buttons */
 .stButton>button {border-radius: 8px; font-weight: 500; border: 1px solid var(--line); background: var(--bg);
   color: var(--ink-2); padding: 6px 14px; transition: all .15s;}
@@ -81,42 +75,35 @@ div[data-testid="stMetricLabel"] p {font-size: .78rem; color: var(--ink-3);}
 .stButton>button[kind="primary"] {background: var(--brand); color: #fff; border-color: var(--brand);
   box-shadow: 0 1px 3px rgba(30,64,175,.3); font-weight: 600;}
 .stButton>button[kind="primary"]:hover {background: var(--brand-2); border-color: var(--brand-2); color: #fff;}
-
 /* Containers / cards */
 div[data-testid="stContainerBorderless"], div[data-testid="stContainer"] {border-radius: 10px;}
 div[data-testid="stContainer"][class*="st-emotion"] {background: var(--bg);}
 div[data-testid="stExpander"] {border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
   box-shadow: 0 1px 2px rgba(15,23,42,.03);}
 div[data-testid="stExpander"] summary {font-weight: 500; color: var(--ink);}
-
 /* Tabs */
 div[data-baseweb="tab-list"] {gap: 2px; border-bottom: 1px solid var(--line);}
 button[data-baseweb="tab"] {border-radius: 8px 8px 0 0; font-weight: 500; color: var(--ink-3);
   padding: 8px 14px; background: transparent;}
 button[data-baseweb="tab"][aria-selected="true"] {color: var(--brand); background: var(--brand-tint);
   font-weight: 600;}
-
 /* Segmented control (vùng làm việc) */
 div[data-testid="stSegmentedControl"] button {background: var(--bg); border: 1px solid var(--line);
   color: var(--ink-2); font-weight: 500; padding: 10px 16px;}
 div[data-testid="stSegmentedControl"] button[aria-pressed="true"] {background: var(--brand);
   color: #fff; border-color: var(--brand); box-shadow: 0 1px 3px rgba(30,64,175,.25);}
-
 /* Dataframes */
 div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {border: 1px solid var(--line);
   border-radius: 10px; overflow: hidden;}
-
 /* Alerts */
 div[data-testid="stAlert"] {border-radius: 10px; border: 1px solid var(--line); padding: 10px 14px;}
 div[data-testid="stAlertContentSuccess"] {background: var(--ok-tint); color: #065f46;}
 div[data-testid="stAlertContentWarning"] {background: var(--warn-tint); color: #92400e;}
 div[data-testid="stAlertContentError"] {background: var(--err-tint); color: #991b1b;}
 div[data-testid="stAlertContentInfo"] {background: var(--brand-tint); color: #1e3a8a;}
-
 /* Sidebar */
 section[data-testid="stSidebar"] {background: var(--bg); border-right: 1px solid var(--line);}
 section[data-testid="stSidebar"] .stMarkdown {color: var(--ink-2);}
-
 /* Status strip */
 .status-strip {background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
   padding: 10px 14px; margin: 8px 0 14px; display: flex; gap: 18px; flex-wrap: wrap;
@@ -126,7 +113,6 @@ section[data-testid="stSidebar"] .stMarkdown {color: var(--ink-2);}
 .status-strip .st-item b {color: var(--ink); font-weight: 700;}
 .status-strip .st-item.zero b {color: var(--ink-3); font-weight: 500;}
 .status-strip .st-sep {color: var(--line); font-size: 1rem;}
-
 /* ===== PHẢN HỒI CHUỘT / BÀN PHÍM ===== */
 .stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {cursor: pointer;
   transition: background .12s, border-color .12s, color .12s, transform .06s, box-shadow .12s;}
@@ -155,7 +141,26 @@ div[data-testid="stTextInput"] input:focus, div[data-testid="stTextArea"] textar
   border-color: var(--brand-2) !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15);}
 /* Khi đang xử lý, phần đang chờ mờ nhẹ -> người dùng biết app đang chạy */
 .stale-element, [data-stale="true"] {opacity: .55; transition: opacity .2s;}
-
+/* Nút chính (kể cả nút trong form): chữ trắng rõ trên nền xanh */
+button[kind="primary"], button[kind="primaryFormSubmit"] {background: var(--brand) !important; color: #fff !important;
+  border-color: var(--brand) !important; font-weight: 600;}
+button[kind="primary"] p, button[kind="primaryFormSubmit"] p {color: #fff !important;}
+button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {background: var(--brand-2) !important;
+  border-color: var(--brand-2) !important;}
+/* Vùng làm việc đang chọn */
+div[data-testid="stButtonGroup"] button[aria-checked="true"] {background: var(--brand) !important;
+  color: #fff !important; border-color: var(--brand) !important; font-weight: 600;}
+div[data-testid="stButtonGroup"] button[aria-checked="true"] p {color: #fff !important;}
+div[data-testid="stButtonGroup"] button[aria-checked="false"]:hover {background: var(--brand-tint);
+  color: var(--brand); border-color: var(--brand-2);}
+/* Trang đăng nhập */
+.login-head {text-align: center; margin: 6vh 0 18px;}
+.login-logo {width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 14px; font-size: 28px; line-height: 56px;
+  background: linear-gradient(135deg, #0f172a, #1e40af); box-shadow: 0 6px 18px rgba(30,64,175,.25);}
+.login-title {font-size: 1.5rem; font-weight: 800; color: var(--ink); letter-spacing: -.3px;}
+.login-sub {font-size: .88rem; color: var(--ink-3); margin-top: 2px;}
+div[data-testid="stForm"] {background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 18px 8px; box-shadow: 0 2px 10px rgba(15,23,42,.05);}
 /* Legacy classes giữ cho tương thích */
 .buoc {background: var(--brand-tint); border-left: 3px solid var(--brand); padding: 10px 14px;
   border-radius: 8px; margin: 6px 0 12px; color: var(--ink-2);}
@@ -171,7 +176,8 @@ div[data-testid="stTextInput"] input:focus, div[data-testid="stTextArea"] textar
   padding: 14px 16px; margin: 8px 0 12px; box-shadow: 0 1px 2px rgba(15,23,42,.03);}
 .card-h {font-weight: 700; color: var(--ink); font-size: 1.02rem;}
 .card-s {color: var(--ink-3); font-size: .88rem;}
-</style>""", unsafe_allow_html=True)
+</style>"""
+st.markdown(re.sub(r"\n\s*\n", "\n", _CSS), unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -313,52 +319,59 @@ def dang_nhap() -> None:
     if ss.get("user"):
         return
     tk = ds_tai_khoan()
-    st.title("🧩 PIM Tool — CMS → PIM")
-    if not tk:
-        st.error("Chưa cấu hình tài khoản. Vào Streamlit Cloud → app → Settings → Secrets, thêm:")
-        st.code('[users.ducd]\npassword = "mat-khau"\nten = "Đức"\nadmin = true', language="toml")
-        st.stop()
-    t_dn, t_dk = st.tabs(["🔑 Đăng nhập", "🆕 Tạo tài khoản"])
-    with t_dn:
-        with st.form("dang_nhap"):
-            u = st.text_input("Tài khoản (tên đăng nhập)").strip()
-            p = st.text_input("Mật khẩu", type="password")
-            ok = st.form_submit_button("Đăng nhập", type="primary")
-        if ok:
-            k = tim_tai_khoan(u, tk)
-            if ss.get("sai_mk", 0) >= 8:
-                st.error("Sai quá nhiều lần — tải lại trang sau ít phút.")
-            elif k and dung_mat_khau(tk[k].get("password"), p):
-                ss.user, ss.ten = k, tk[k].get("ten", k)
-                ss.admin = bool(tk[k].get("admin", False))
-                ss.ws = k
-                ss.sai_mk = 0
-                st.rerun()
-            else:
-                ss.sai_mk = ss.get("sai_mk", 0) + 1
-                cho = tim_tai_khoan(u, ds_tai_khoan(True))
-                if cho and cho not in tk and cho not in tk_secrets():
-                    st.warning("Tài khoản này đang chờ admin duyệt.")
+    _, giua, _ = st.columns([1, 1.25, 1])
+    with giua:
+        st.markdown(
+            '<div class="login-head"><div class="login-logo">🧩</div>'
+            '<div class="login-title">PIM Tool</div>'
+            '<div class="login-sub">Chuyển thông số CMS → PIM · TGDĐ / ĐMX</div></div>',
+            unsafe_allow_html=True)
+        if not tk:
+            st.error("Chưa cấu hình tài khoản. Vào Streamlit Cloud → app → Settings → Secrets, thêm:")
+            st.code('[users.ducd]\npassword = "mat-khau"\nten = "Đức"\nadmin = true', language="toml")
+            st.stop()
+        t_dn, t_dk = st.tabs(["🔑 Đăng nhập", "🆕 Tạo tài khoản"])
+        with t_dn:
+            with st.form("dang_nhap"):
+                u = st.text_input("Tài khoản (tên đăng nhập)").strip()
+                p = st.text_input("Mật khẩu", type="password")
+                ok = st.form_submit_button("Đăng nhập", type="primary", width="stretch")
+            if ok:
+                k = tim_tai_khoan(u, tk)
+                if ss.get("sai_mk", 0) >= 8:
+                    st.error("Sai quá nhiều lần — tải lại trang sau ít phút.")
+                elif k and dung_mat_khau(tk[k].get("password"), p):
+                    ss.user, ss.ten = k, tk[k].get("ten", k)
+                    ss.admin = bool(tk[k].get("admin", False))
+                    ss.ws = k
+                    ss.sai_mk = 0
+                    st.rerun()
                 else:
-                    st.error("Sai tài khoản hoặc mật khẩu. Lưu ý: dùng TÊN ĐĂNG NHẬP (vd `ducd`), không phải tên hiển thị.")
-    with t_dk:
-        st.caption("Thành viên tự tạo tài khoản. Có **mã mời** từ admin thì dùng được ngay; không có thì chờ admin duyệt.")
-        with st.form("dang_ky"):
-            u2 = st.text_input("Tên đăng nhập (chữ thường, không dấu)")
-            t2 = st.text_input("Tên hiển thị")
-            m2 = st.text_input("Mật khẩu (≥ 6 ký tự)", type="password")
-            m3 = st.text_input("Nhập lại mật khẩu", type="password")
-            ma = st.text_input("Mã mời (nếu có)")
-            ok2 = st.form_submit_button("Tạo tài khoản")
-        if ok2:
-            if m2 != m3:
-                st.error("Hai mật khẩu không giống nhau.")
-            else:
-                try:
-                    done, msg = dang_ky(u2, t2, m2, ma)
-                except Exception as e:  # noqa: BLE001
-                    done, msg = False, f"Lỗi lưu: {e}"
-                (st.success if done else st.error)(msg)
+                    ss.sai_mk = ss.get("sai_mk", 0) + 1
+                    cho = tim_tai_khoan(u, ds_tai_khoan(True))
+                    if cho and cho not in tk and cho not in tk_secrets():
+                        st.warning("Tài khoản này đang chờ admin duyệt.")
+                    else:
+                        st.error("Sai tài khoản hoặc mật khẩu. Lưu ý: dùng TÊN ĐĂNG NHẬP (vd `ducd`), không phải tên hiển thị.")
+        with t_dk:
+            st.caption("Thành viên tự tạo tài khoản. Có **mã mời** từ admin thì dùng được ngay; không có thì chờ admin duyệt.")
+            with st.form("dang_ky"):
+                u2 = st.text_input("Tên đăng nhập (chữ thường, không dấu)")
+                t2 = st.text_input("Tên hiển thị")
+                m2 = st.text_input("Mật khẩu (≥ 6 ký tự)", type="password")
+                m3 = st.text_input("Nhập lại mật khẩu", type="password")
+                ma = st.text_input("Mã mời (nếu có)")
+                ok2 = st.form_submit_button("Tạo tài khoản", width="stretch")
+            if ok2:
+                if m2 != m3:
+                    st.error("Hai mật khẩu không giống nhau.")
+                else:
+                    try:
+                        done, msg = dang_ky(u2, t2, m2, ma)
+                    except Exception as e:  # noqa: BLE001
+                        done, msg = False, f"Lỗi lưu: {e}"
+                    (st.success if done else st.error)(msg)
+        st.caption(APP_VERSION.split(" (")[0])
     st.stop()
 
 
@@ -834,7 +847,7 @@ def thanh_ben() -> None:
             for k in list(ss.keys()):
                 del ss[k]
             st.rerun()
-        st.caption(APP_VERSION)
+        st.caption(APP_VERSION.split(" (")[0], help=APP_VERSION)
 
 
 # ============================================================================
