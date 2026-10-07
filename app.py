@@ -3629,6 +3629,10 @@ def khu_bien_doi() -> None:
                           format_func=lambda x: f"{x[0]} · {x[1]} — {ten.get(x, '')}")
     moi_nganh = c2.checkbox("Áp cho mã cột này ở MỌI ngành", key="bd_moi_nganh",
                             help="Lưu theo mã cột (*) thay vì từng ngành — tiện cho cột dùng chung như mass_tskt_master")
+    _co = [m for cc, m in chon if ss.dv.get((cc, m, "bd")) or ss.dv.get(("*", m, "bd"))]
+    if _co:
+        st.info(f"Cột {', '.join(_co)} đã có biến đổi đang áp — xem & sửa trong bảng **Biến đổi đang áp** bên dưới "
+                "(thêm ở đây sẽ CỘNG THÊM 1 bước nữa).")
     c = st.columns([2, 2, 1.2, 1.2, 1])
     kieu = c[0].selectbox("Kiểu", list(C.BD_KIEU), format_func=C.BD_KIEU.get, key="bd_kieu")
     pv = c[1].selectbox("Phạm vi", list(C.BD_PHAM_VI), format_func=C.BD_PHAM_VI.get, key="bd_pv",
@@ -3663,15 +3667,49 @@ def khu_bien_doi() -> None:
             st.rerun()
     dang = [(k, v) for k, v in ss.dv.items() if len(k) == 3 and v]
     if dang:
-        st.markdown("###### Biến đổi đang áp")
-        rows = [{"Ngành": k[0], "Mã cột": k[1], "Bước": " → ".join(
-            f"{C.BD_KIEU.get(x['kieu'], x['kieu'])} [{x.get('a', '')}{(' → ' + x['b']) if x.get('b') else ''}] "
-            f"({C.BD_PHAM_VI.get(x.get('pham_vi', 'so'), '')[:18]})" for x in v), "Bỏ": False} for k, v in dang]
-        ed = st.data_editor(pd.DataFrame(rows), hide_index=True, key=f"ed_bd_{ss.ver}",
-                            disabled=["Ngành", "Mã cột", "Bước"])
-        if st.button("🗑 Bỏ biến đổi đã tick") and ed["Bỏ"].any():
-            for r in ed[ed["Bỏ"]].to_dict("records"):
-                ss.dv.pop((r["Ngành"], r["Mã cột"], "bd"), None)
+        st.markdown("###### Biến đổi đang áp — sửa thẳng trong bảng rồi bấm Lưu")
+        k2n, n2k = dict(C.BD_KIEU), {v: kk for kk, v in C.BD_KIEU.items()}
+        p2n, n2p = dict(C.BD_PHAM_VI), {v: kk for kk, v in C.BD_PHAM_VI.items()}
+        rows = []
+        for k, v in dang:
+            for n, x in enumerate(v, 1):
+                rows.append({"Ngành": k[0], "Mã cột": k[1], "Bước": n, "Kiểu": k2n.get(x.get("kieu"), x.get("kieu", "")),
+                             "Phạm vi": p2n.get(x.get("pham_vi", "so"), ""), "Chữ / Từ (A)": x.get("a", ""),
+                             "Sang / Thay bằng / Chữ sau (B)": x.get("b", ""), "Hệ số": x.get("he_so", ""),
+                             "Bỏ": False})
+        ed = st.data_editor(pd.DataFrame(rows), hide_index=True, key=f"ed_bd_{ss.ver}", width="stretch",
+                            disabled=["Ngành", "Mã cột", "Bước"],
+                            column_config={"Kiểu": st.column_config.SelectboxColumn(options=list(k2n.values()),
+                                                                                    required=True, width="medium"),
+                                           "Phạm vi": st.column_config.SelectboxColumn(options=list(p2n.values()),
+                                                                                       required=True, width="medium")})
+        cb = st.columns([1.3, 1.3, 3])
+        if cb[0].button("💾 Lưu chỉnh sửa", type="primary", key="bd_luu_sua"):
+            moi: dict = {}
+            for r in ed.to_dict("records"):
+                if r["Bỏ"]:
+                    continue
+                moi.setdefault((r["Ngành"], r["Mã cột"], "bd"), []).append(
+                    {"kieu": n2k.get(r["Kiểu"], r["Kiểu"]), "pham_vi": n2p.get(r["Phạm vi"], "so"),
+                     "a": str(r["Chữ / Từ (A)"] or ""), "b": str(r["Sang / Thay bằng / Chữ sau (B)"] or ""),
+                     "he_so": str(r["Hệ số"] or "")})
+            for k, _v in dang:
+                ss.dv.pop(k, None)
+            ss.dv.update(moi)
+            bump()
+            luu(["settings"], "Sửa biến đổi hàng loạt")
+            st.rerun()
+        if cb[1].button("🗑 Bỏ dòng đã tick", key="bd_bo_tick") and ed["Bỏ"].any():
+            moi = {}
+            for r in ed.to_dict("records"):
+                if not r["Bỏ"]:
+                    moi.setdefault((r["Ngành"], r["Mã cột"], "bd"), []).append(
+                        {"kieu": n2k.get(r["Kiểu"], r["Kiểu"]), "pham_vi": n2p.get(r["Phạm vi"], "so"),
+                         "a": str(r["Chữ / Từ (A)"] or ""), "b": str(r["Sang / Thay bằng / Chữ sau (B)"] or ""),
+                         "he_so": str(r["Hệ số"] or "")})
+            for k, _v in dang:
+                ss.dv.pop(k, None)
+            ss.dv.update(moi)
             bump()
             luu(["settings"], "Bỏ biến đổi hàng loạt")
             st.rerun()
