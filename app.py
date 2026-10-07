@@ -22,15 +22,35 @@ from pathlib import Path as _Path
 _ASSETS = _Path(__file__).parent / "assets"
 _LOGO = _ASSETS / "logo.png"
 _FAVICON = _ASSETS / "favicon.png"
-try:
-    LOGO_B64 = _b64.b64encode(_LOGO.read_bytes()).decode()
-except Exception:  # noqa: BLE001 - thiếu file logo thì dùng icon chữ
-    LOGO_B64 = ""
+_DMX_BANNER = _ASSETS / "dmx_banner.png"  # logo Điện máy XANH (nền xanh)
+
+
+def _b64_file(ten: str) -> str:
+    try:
+        return _b64.b64encode((_ASSETS / ten).read_bytes()).decode()
+    except Exception:  # noqa: BLE001 - thiếu file logo thì dùng icon chữ
+        return ""
+
+
+LOGO_B64 = _b64_file("logo_nho.png") or _b64_file("logo.png")
+DMX_CHU_B64 = _b64_file("dmx_chu.png")       # chữ "Điện máy XANH" nền trong suốt
+DMX_BANNER_B64 = _b64_file("dmx_banner.png")
 
 
 def logo_img(px: int) -> str:
     return (f'<img src="data:image/png;base64,{LOGO_B64}" width="{px}" height="{px}" '
             f'style="display:block;border-radius:50%" alt="logo">') if LOGO_B64 else "🧩"
+
+
+def dmx_chu_img(cao: int) -> str:
+    return (f'<img src="data:image/png;base64,{DMX_CHU_B64}" height="{cao}" style="display:block;height:{cao}px;'
+            f'width:auto" alt="Điện máy XANH">') if DMX_CHU_B64 else ""
+
+
+def dmx_banner_img(rong: int) -> str:
+    return (f'<img src="data:image/png;base64,{DMX_BANNER_B64}" style="display:block;width:{rong}px;max-width:100%;'
+            f'height:auto;border-radius:14px;margin:0 auto;box-shadow:0 8px 24px rgba(0,120,200,.25)" '
+            f'alt="Điện máy XANH">') if DMX_BANNER_B64 else logo_img(72)
 
 
 st.set_page_config(page_title="PIM Tool — CMS → PIM", page_icon=str(_FAVICON) if _FAVICON.exists() else "🧩",
@@ -64,7 +84,25 @@ def _data_editor_an_toan(data, *a, **kw):
 
 st.data_editor = _data_editor_an_toan
 
-if _LOGO.exists():
+_goc_tabs = st.tabs
+_RE_SO_TAB = __import__("re").compile(r"\s*\(\s*[\d.,]+\s*\)|\s*✔\s*$")
+
+
+def _tabs_on_dinh(tabs, *a, **kw):
+    """Tên tab có SỐ ĐẾM thay đổi (vd "Nhất quán ngành (3)") làm Streamlit coi là bộ tab mới → nhảy về tab đầu
+    mỗi lần bấm. Bỏ phần số đếm khỏi tên để tab đang mở được giữ nguyên."""
+    try:
+        tabs = [_RE_SO_TAB.sub("", str(t)).strip() or str(t) for t in tabs]
+    except Exception:  # noqa: BLE001
+        pass
+    return _goc_tabs(tabs, *a, **kw)
+
+
+st.tabs = _tabs_on_dinh
+
+if _DMX_BANNER.exists():
+    st.logo(str(_DMX_BANNER), size="large", icon_image=str(_LOGO) if _LOGO.exists() else None)
+elif _LOGO.exists():
     st.logo(str(_LOGO), size="large", icon_image=str(_LOGO))
 
 import ai_helper as AIH  # noqa: E402
@@ -72,7 +110,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-2.5 · 2026-10-07 (sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.6 · 2026-10-07 (logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -314,6 +352,13 @@ div[data-testid="stMetricLabel"] p {font-size: .9rem !important;}
 .status-strip {font-size: .95rem;}
 /* Thông báo rõ: chữ đậm vừa, cỡ chuẩn */
 div[data-testid="stAlert"] p {font-size: 1rem; line-height: 1.55;}
+/* ===== Nhận diện Điện máy XANH (web-2.6) ===== */
+.brand-bar {background: linear-gradient(90deg, #005a9e 0%, #0091d5 60%, #00aeef 100%) !important;}
+.brand-bar .logo .sep {display:inline-block; width:1.5px; height:24px; background: rgba(255,255,255,.55); margin: 0 4px;}
+.brand-bar .meta .chip {background: rgba(0,40,80,.35) !important;}
+.login-banner {margin: 0 auto 14px; max-width: 320px;}
+section[data-testid="stSidebar"] img[data-testid="stLogo"], [data-testid="stSidebarHeader"] img {height: 2.6rem !important;
+  border-radius: 8px;}
 /* ===== Sửa sau rà soát (web-2.5) ===== */
 /* Ô LỖI / CẢNH BÁO / THÔNG BÁO: luôn hiện ĐỦ chữ, không thu gọn (không được bỏ sót nội dung lỗi) */
 div[data-testid="stAlertContainer"], div[data-testid="stAlertContainer"]:hover {max-height: none !important;
@@ -497,7 +542,7 @@ def dang_nhap() -> None:
     _, giua, _ = st.columns([1, 1.25, 1])
     with giua:
         st.markdown(
-            f'<div class="login-head"><div class="login-logo">{logo_img(72)}</div>'
+            f'<div class="login-head"><div class="login-banner">{dmx_banner_img(320)}</div>'
             '<div class="login-title">PIM Tool</div>'
             '<div class="login-sub">Chuyển thông số CMS → PIM · TGDĐ / ĐMX</div></div>',
             unsafe_allow_html=True)
@@ -4569,8 +4614,9 @@ def vung_du_lieu() -> None:
         muc["👥 Quản trị"] = trang_quan_tri
     ds_muc = list(muc)
     if ss.get("vung3") not in ds_muc:
-        ss.vung3 = ds_muc[0]
+        ss.vung3 = ss.get("_vung3_giu") if ss.get("_vung3_giu") in ds_muc else ds_muc[0]
     st.segmented_control("Mục", ds_muc, key="vung3", required=True, label_visibility="collapsed")
+    ss._vung3_giu = ss.vung3
     muc[ss.vung3]()
 
 
@@ -4587,6 +4633,8 @@ if ss.get("ws_da_nap") != ss.ws:
 thanh_ben()
 hien_xung_dot()
 VUNG = ["🚀 Chạy pipeline", "🔍 Kiểm tra & Đối chiếu", "📋 Quản lý dữ liệu"]
+if "vung" not in ss and ss.get("_vung_giu") in VUNG:  # giữ vùng đang làm khi ô chọn vùng bị xoá trạng thái
+    ss.vung = ss._vung_giu
 if ss.get("chuyen_vung") in VUNG:  # nhảy sang vùng khác (vd: map xong -> sang Kiểm tra) TRƯỚC khi vẽ ô chọn vùng
     ss.vung = ss.pop("chuyen_vung")
 ss.setdefault("vung", VUNG[0])
@@ -4598,7 +4646,8 @@ try:
     _ws = f"Workspace: <b>{ss.ws}</b>"
     st.markdown(
         f'<div class="brand-bar">'
-        f'<div class="logo"><span class="mark">{logo_img(34)}</span>PIM Tool <span style="opacity:.85;font-weight:500;font-size:.9rem">· CMS → PIM</span></div>'
+        f'<div class="logo">{dmx_chu_img(30) or ('<span class="mark">' + logo_img(34) + '</span>')}'
+        f'<span class="sep"></span>PIM Tool <span style="opacity:.9;font-weight:500;font-size:.9rem">· CMS → PIM</span></div>'
         f'<div class="meta"><span class="chip">👤 {ss.ten}{_ad}</span>'
         f'<span class="chip">{_ws}</span></div>'
         f'</div>', unsafe_allow_html=True)
@@ -4606,6 +4655,7 @@ except Exception:
     pass
 
 st.segmented_control("Vùng làm việc", VUNG, key="vung", required=True, width="stretch", label_visibility="collapsed")
+ss._vung_giu = ss.vung
 
 # Thanh trạng thái: card ngang với màu tắt khi 0
 try:
