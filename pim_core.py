@@ -1175,6 +1175,7 @@ def chay_map(data_sp: pd.DataFrame, imp: pd.DataFrame, cau_hinh: Dict[str, dict]
             a, b = k.split("\t")
             sku_rule[a].append((b, v))
     goc_cms: Dict[str, str] = {}  # "sku\tma" -> giá trị CMS gốc của ô đã sửa theo quy tắc
+    o_ten: Dict[str, dict] = {}   # "sku\tma" -> ô được điền bằng map dự phòng theo TÊN (không phải theo mã)
     gt_cot: Dict[str, set] = defaultdict(set)
     for k in (sua_gt or {}):
         if k.count("\t") == 2:
@@ -1264,6 +1265,7 @@ def chay_map(data_sp: pd.DataFrame, imp: pd.DataFrame, cau_hinh: Dict[str, dict]
         da_bao: set = set()
         sp_c = sp[sp.PRODUCTCODE.isin(dsset)]
         cho_ten: List[tuple] = []
+        ten_da_map: Dict[str, str] = {}  # tên thuộc tính CMS (chuẩn hoá) ĐÃ map theo mã -> cột (để cảnh báo trùng tên)
         ten_cau_hinh: Dict[str, str] = {}
         if map_ten in ("cau_hinh", "tham_chieu"):
             dem_ten = Counter(chuan_hoa_ten(t) for t in ten_cot.values() if t)
@@ -1277,6 +1279,7 @@ def chay_map(data_sp: pd.DataFrame, imp: pd.DataFrame, cau_hinh: Dict[str, dict]
             if pid in tmc:
                 da = True
                 ma = tmc[pid]
+                ten_da_map.setdefault(chuan_hoa_ten(pname), ma)
                 if ma in cot_set:
                     theo_id.add((sku, ma))
                     if val not in bt[(sku, ma)]:
@@ -1302,6 +1305,11 @@ def chay_map(data_sp: pd.DataFrame, imp: pd.DataFrame, cau_hinh: Dict[str, dict]
                 if val not in bt[(sku, ma)]:
                     bt[(sku, ma)].append(val)
                     st["map_theo_ten"] += 1
+                _o = o_ten.setdefault(f"{sku}\t{ma}", {"cate": cate, "ma": ma, "props": {}})
+                _o["props"][pid] = pname
+                _td = ten_da_map.get(chuan_hoa_ten(pname), "")
+                if _td and _td != ma:
+                    _o["trung_ten"] = _td  # cùng TÊN với thuộc tính đã map theo mã sang cột khác -> nghi sai
                 k = ("ten", cate, pid)
                 if k not in chua_map:
                     chua_map[k] = {"cate": cate, "prop_id": pid, "prop_name": pname, "so_dong": 0, "vi_du": val,
@@ -1365,7 +1373,7 @@ def chay_map(data_sp: pd.DataFrame, imp: pd.DataFrame, cau_hinh: Dict[str, dict]
                                                        else "CATEGORYID" if n["tu_cate_id"] else "tự nhận diện"),
                      "TAB TSKT / CẤU HÌNH": cfg.get("nguon") or (f"cấu hình — {len(cfg.get('cot', []))} cột" if cfg else ""),
                      "GHI CHÚ": " | ".join(ghi)})
-    return {"bang": bang, "log": log, "khong_data": khong_data, "chua_map": df_cm, "goc_cms": goc_cms, "chon": chon,
+    return {"bang": bang, "log": log, "khong_data": khong_data, "chua_map": df_cm, "goc_cms": goc_cms, "o_theo_ten": o_ten, "chon": chon,
             "tom_tat": {"so_sku": st["so_sku"], "so_nganh": len(bang), "so_o": st["so_o"],
                         "map_theo_ten": st["map_theo_ten"], "filter_khong_khop": st["filter_khong_khop"],
                         "khong_data": len(khong_data), "o_sua_theo_quy_tac": st["sua_duyet"]}, "luc": bay_gio()}
@@ -1976,7 +1984,7 @@ def _xlsx_text(rows: List[list]) -> bytes:
 
 def xuat_file_import(bang: Dict[str, dict], imp: pd.DataFrame, sua: dict, don_vi: dict, rong: dict,
                      bo_cot_sku: bool = True, chi_cate: Optional[List[str]] = None,
-                     bo_dong_trong: bool = False) -> dict:
+                     bo_dong_trong: bool = False, bo_o: Optional[set] = None) -> dict:
     """-> {"files": [(tên, bytes, số dòng)], "zip": bytes, "so_o_sua", "so_o_dv", "so_o_rong", "bo_dong", "bo_trong"}.
     bo_dong_trong=True: SKU không có giá trị thuộc tính nào -> KHÔNG đưa vào file import (đưa vào file xin data).
     Mặc định False = như desktop (vẫn xuất dòng trống)."""
@@ -2000,7 +2008,11 @@ def xuat_file_import(bang: Dict[str, dict], imp: pd.DataFrame, sua: dict, don_vi
                 if c in ("model_code", "sku", "variant_code"):
                     out.append(r["vals"].get(c, ""))
                     continue
-                v, loai = bien_doi_o(cate, r["sku"], c, r["vals"].get(c, ""), sua, don_vi, rong)
+                v0 = r["vals"].get(c, "")
+                if bo_o and f"{r['sku']}\t{c}" in bo_o:
+                    v0 = ""  # ô điền theo TÊN chưa được duyệt -> không đưa vào file import
+                    dem["bo_o_ten"] += 1
+                v, loai = bien_doi_o(cate, r["sku"], c, v0, sua, don_vi, rong)
                 if loai:
                     dem[{"sua": "so_o_sua", "dv": "so_o_dv", "bd": "so_o_bd"}.get(loai, "so_o_rong")] += 1
                 out.append(v)

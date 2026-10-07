@@ -110,7 +110,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-APP_VERSION = "web-2.6 · 2026-10-07 (logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-2.7 · 2026-10-07 (hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -683,7 +683,9 @@ def ap_settings(st_: dict) -> None:
     ss.dv = {tuple(k.split("\t")): v for k, v in st_.get("don_vi", {}).items() if k.count("\t") in (1, 2)}
     ss.rong = {k: list(v) for k, v in st_.get("rong", {}).items()}
     # web-1.4: mặc định về đúng bản desktop (chỉ map theo PROPERTYID); map theo tên thành tuỳ chọn bật tay
-    ss.map_ten = st_.get("map_ten", "tat") if st_.get("cai_dat_ver", 1) >= 2 else "tat"
+    # web-2.7: LUÔN về Tắt khi mở workspace (map theo tên không phải logic desktop, từng điền nhầm cột)
+    ss.map_ten = "tat"
+    ss.duyet_ten = list(st_.get("duyet_ten", []))  # các "ngành\tmã" người dùng đã duyệt cho phép vào file import
     ss.luc_luu = st_.get("luc_luu", "")
     ss.chon_nganh = dict(st_.get("chon_nganh", {}))
 
@@ -712,7 +714,7 @@ def settings_bytes() -> bytes:
     return json_to_bytes({"sua": {"\t".join(k): v for k, v in ss.sua.items()},
                           "don_vi": {"\t".join(k): v for k, v in ss.dv.items() if v},
                           "rong": {k: v for k, v in ss.rong.items() if v and v[0] != C.HD_GIU},
-                          "map_ten": ss.get("map_ten", "tat"), "cai_dat_ver": 2, "luc_luu": C.bay_gio(),
+                          "duyet_ten": list(ss.get("duyet_ten", [])), "cai_dat_ver": 3, "luc_luu": C.bay_gio(),
                           "chon_nganh": ss.get("chon_nganh", {}),
                           "nguoi_luu": ss.user})
 
@@ -1280,6 +1282,7 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
                                   "trống). Danh sách nằm trong file xin data CMS.")
     with c[2]:
         nut_xin_data(f"{key}_xd")
+    canh_bao_o_ten()
     xn = True
     # Chỉ bắt tick khi có lỗi CHẶN (can_xn); lưu ý thường không cần tick -> bớt 1 lượt bấm.
     if (can_xn if can_xn is not None else bool(canh)):
@@ -1287,13 +1290,13 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
     if st.button("📤 Tạo file import", type="primary", disabled=not xn or not chon, key=f"{key}_tao"):
         with st.spinner("Đang tạo file…"):
             x = C.xuat_file_import(ss.bang, ss["import"], ss.sua, ss.dv, ss.rong, bo_cot_sku=not giu_sku,
-                                   chi_cate=chon, bo_dong_trong=bo_trong)
+                                   chi_cate=chon, bo_dong_trong=bo_trong, bo_o=o_ten_bi_chan())
         ss.xuat = x
         ss.lich_su.append({"Lúc": C.bay_gio(), "Người xuất": ss.user, "Workspace": ss.ws,
                            "File": ", ".join(f[0] for f in x["files"]), "Số dòng": sum(f[2] for f in x["files"]),
                            "Sửa tay": x.get("so_o_sua", 0), "Thêm đơn vị": x.get("so_o_dv", 0),
                            "Biến đổi": x.get("so_o_bd", 0), "Không/Đang cập nhật": x.get("so_o_rong", 0),
-                           "Tách xin data": x.get("bo_trong", 0), "Cảnh báo": " | ".join(canh or [])})
+                           "Tách xin data": x.get("bo_trong", 0), "Chặn ô theo tên": x.get("bo_o_ten", 0), "Cảnh báo": " | ".join(canh or [])})
         luu(["lich_su"], f"Xuất {len(x['files'])} file import")
         # AI tự học: dùng chính lô vừa xuất (coi như đã được xác nhận) làm mẫu cho lần sau
         try:
@@ -2182,6 +2185,50 @@ def qc_nguoc_tu_ai_hoc() -> list:
     return kq
 
 
+def gom_o_theo_ten(o: dict) -> list:
+    """Gom các ô điền theo TÊN thành nhóm (ngành, mã cột) để hiển thị cảnh báo + duyệt."""
+    g: dict = {}
+    for k, v in (o or {}).items():
+        sku = k.split("\t")[0]
+        x = g.setdefault((v["cate"], v["ma"]), {"cate": v["cate"], "ma": v["ma"], "props": {}, "skus": [],
+                                               "trung_ten": ""})
+        x["props"].update(v.get("props", {}))
+        x["skus"].append(sku)
+        if v.get("trung_ten"):
+            x["trung_ten"] = v["trung_ten"]
+    return list(g.values())
+
+
+def o_ten_nhom() -> list:
+    """Các nhóm ô điền theo tên CHƯA được duyệt."""
+    duyet = set(ss.get("duyet_ten", []))
+    return [x for x in ss.meta.get("o_theo_ten", []) if f"{x['cate']}\t{x['ma']}" not in duyet]
+
+
+def o_ten_bi_chan() -> set:
+    """Tập khoá "sku\tmã" bị chặn khỏi file import (cột điền theo tên chưa duyệt)."""
+    return {f"{s_}\t{x['ma']}" for x in o_ten_nhom() for s_ in x["skus"]}
+
+
+def canh_bao_o_ten(khung=st) -> None:
+    """Cảnh báo ĐỎ: ô điền theo tên -> ghi rõ giá trị đang đi vào cột nào. Chặn khỏi import tới khi duyệt."""
+    ds_ = o_ten_nhom()
+    if not ds_:
+        return
+    dong = []
+    for x in ds_:
+        b = ss.bang.get(x["cate"], {})
+        sk = set(x["skus"])
+        vd = next((r["vals"].get(x["ma"], "") for r in b.get("rows", []) if r["sku"] in sk and r["vals"].get(x["ma"])), "")
+        pr = ", ".join(f"«{n}» (PROPERTYID {p})" for p, n in list(x["props"].items())[:3])
+        trung = f" ⚠️ tên này CŨNG trùng cột `{x['trung_ten']}` đã map theo mã." if x.get("trung_ten") else ""
+        dong.append(f"- Ngành **{x['cate']}** · thuộc tính CMS {pr} → cột **`{x['ma']}`** · "
+                    f"**{len(sk)} SKU**, ví dụ `{str(vd)[:60]}`.{trung}")
+    khung.error("⛔ **Có ô được điền THEO TÊN (không phải theo mã PROPERTYID — không có trong bản desktop).** "
+                "Các cột sau **KHÔNG được đưa vào file import** cho tới khi bạn duyệt "
+                "(vào 🧭 QC tổng hợp → mục «Ô điền theo tên»):\n\n" + "\n".join(dong))
+
+
 def chay_map_ui() -> None:
     ss.pop("xuat", None); ss.pop("ws_mau", None)  # map lại → bỏ file xuất cũ, tránh tải nhầm bản trước
     thieu_import = not len(ss.get("import", []))
@@ -2208,12 +2255,13 @@ def chay_map_ui() -> None:
     ss.meta = {"nganh": {c: {k: b[k] for k in ("title", "ten_nh", "attr", "ten")} for c, b in r["bang"].items()},
                "luc": r["luc"], "tom_tat": r["tom_tat"], "log": r["log"][:5000],
                "chua_map": r["chua_map"].to_dict("records"), "goc_cms": r["goc_cms"], "dx_dang_ap": n_rieng,
-               "chon": r["chon"]}
+               "chon": r["chon"], "o_theo_ten": gom_o_theo_ten(r.get("o_theo_ten", {}))}
     bump()
     luu(["ket_qua", "settings"], f"Map {r['tom_tat']['so_sku']} SKU / {r['tom_tat']['so_nganh']} ngành hàng")
     ss.map_msg = (f"✔ Map xong {r['tom_tat']['so_sku']:,} SKU · {r['tom_tat']['so_nganh']} ngành hàng · "
                   f"{r['tom_tat']['so_o']:,} ô · {time.time() - t:.1f} giây"
-                  + (f" · {r['tom_tat']['map_theo_ten']:,} ô map theo tên" if r['tom_tat']['map_theo_ten'] else ""))
+                  + (f" · ⚠️ {r['tom_tat']['map_theo_ten']:,} ô điền THEO TÊN (đang bị chặn, chưa vào file import)"
+                     if r['tom_tat']['map_theo_ten'] else ""))
     try:  # QC ngầm sau map: báo ngay nếu ngành nào sót cấu hình / mapping
         _L = nq()["loi"]
         _c = int((_L["Mức"] == "CAO").sum()) if len(_L) else 0
@@ -2276,6 +2324,7 @@ def trang_map() -> None:
     if bang_trong():
         st.info("Chưa có kết quả map — bấm **① Map dữ liệu**.")
         return
+    canh_bao_o_ten()
     k = kq()
     the_so(k)
     c = st.columns([1.3, 1.3, 3])
@@ -2376,6 +2425,9 @@ def qc_tong_hop(k: dict) -> list:
          int((nq()["loi"]["Mức"] == "CAO").sum()) if len(nq()["loi"]) else 0,
          "Ngành trong DATA SP không khớp cấu hình · mapping TSKT/FILTER · DATA PIM", "Xem bên dưới (tab 🧭)", None,
          "nhat_quan"),
+        ("CAO", "Ô điền THEO TÊN chưa duyệt", sum(len(x["skus"]) for x in o_ten_nhom()),
+         "Không theo mã PROPERTYID (không có ở desktop) — đang bị chặn khỏi file import",
+         "Xem giá trị đang đi vào cột nào, tick duyệt nếu đúng", None, "o_ten"),
         ("CAO", "Thiếu model_code", s.get("thieu_model", 0), "SKU không có Mã model → không import được",
          "Sửa trực tiếp cột Mã model bên dưới", "thieu_model", "thieu_model"),
         ("CAO", "Thiếu category_code", s.get("thieu_cate", 0), "IMPORT chưa có Mã danh mục PIM",
@@ -2518,6 +2570,21 @@ def khu_sua_loi(kind: str, k: dict) -> None:
         return
     if kind == "nhat_quan":
         hien_nhat_quan(nq(), "qc")
+        return
+    if kind == "o_ten":
+        canh_bao_o_ten()
+        ds_ = o_ten_nhom()
+        df_ = pd.DataFrame([{"Duyệt": False, "Ngành": x["cate"], "Cột PIM": x["ma"],
+                             "Thuộc tính CMS": "; ".join(f"{n} ({p})" for p, n in x["props"].items()),
+                             "Số SKU": len(x["skus"]), "Trùng tên cột đã map": x.get("trung_ten", "")} for x in ds_])
+        ed = st.data_editor(df_, hide_index=True, key=f"ed_o_ten_{ss.get('ver_map', 0)}", width="stretch",
+                            disabled=[c for c in df_.columns if c != "Duyệt"])
+        if st.button("✅ Duyệt các cột đã tick (cho vào file import)", key="btn_duyet_ten"):
+            moi = [f"{r['Ngành']}\t{r['Cột PIM']}" for _, r in ed.iterrows() if r["Duyệt"]]
+            if moi:
+                ss.duyet_ten = sorted(set(ss.get("duyet_ten", [])) | set(moi))
+                luu(["settings"], f"Duyệt {len(moi)} cột điền theo tên")
+                st.rerun()
         return
     if kind in ("thieu_model", "thieu_cate"):
         _sua_import_thieu("model_code" if kind == "thieu_model" else "category_code")
