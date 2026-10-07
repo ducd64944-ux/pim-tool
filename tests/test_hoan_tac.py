@@ -3,7 +3,7 @@ import sys, os, re, types
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pim_core as C
 src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"), encoding="utf-8").read()
-i, j = src.index("def _trang_thai_sua"), src.index("def khu_hoan_tac")
+i, j = src.index("def _trang_thai_sua"), src.index("def _hoan_tac_cot_ui")
 class SS(dict):
     __getattr__ = dict.get
     def __setattr__(s, k, v): s[k] = v
