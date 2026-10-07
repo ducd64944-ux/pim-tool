@@ -114,25 +114,14 @@ LIEN_HE = {"ten": "Đức Content 234766", "sdt": "0326606655", "line": "1756070
 
 
 def the_lien_he() -> None:
-    """Dòng tên người làm; rê chuột vào hiện khung thông tin liên hệ (CSS thuần, không cần bấm)."""
-    import html as _h
+    """Tên người làm: bấm vào mở khung liên hệ — khung GIỮ NGUYÊN tới khi bấm ra ngoài, mỗi dòng có nút sao chép."""
     lh = LIEN_HE
-    dong = f"<div><span>📞 SĐT</span><b>{_h.escape(lh['sdt'])}</b></div>"
-    if lh.get("line"):
-        dong += f"<div><span>💬 LINE ID</span><b>{_h.escape(lh['line'])}</b></div>"
-    if lh.get("email"):
-        dong += f"<div><span>✉️ Email</span><b>{_h.escape(lh['email'])}</b></div>"
-    st.markdown(
-        "<style>.lh-w{position:relative;display:inline-block;margin:.3rem 0}"
-        ".lh-t{font-size:.9rem;opacity:.75;cursor:default;border-bottom:1px dotted currentColor}"
-        ".lh-c{display:none;position:absolute;bottom:130%;left:0;z-index:9999;min-width:230px;padding:.7rem .9rem;"
-        "background:#fff;color:#1f2937;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);"
-        "font-size:.9rem}.lh-w:hover .lh-c{display:block}"
-        ".lh-c h6{margin:0 0 .4rem;font-size:.85rem;color:#1e3a8a}"
-        ".lh-c div{display:flex;justify-content:space-between;gap:1rem;padding:.15rem 0}"
-        ".lh-c span{opacity:.7}</style>"
-        f"<div class='lh-w'><span class='lh-t'>{_h.escape(lh['ten'])}</span>"
-        f"<div class='lh-c'><h6>Liên hệ nếu lỗi</h6>{dong}</div></div>", unsafe_allow_html=True)
+    with st.popover(f"📇 {lh['ten']}", width="stretch"):
+        st.markdown("**Liên hệ nếu lỗi**")
+        for nhan, k in (("📞 SĐT", "sdt"), ("💬 LINE ID", "line"), ("✉️ Email", "email")):
+            if lh.get(k):
+                st.caption(nhan)
+                st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
 APP_VERSION = "web-2.8 · 2026-10-07 (thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
