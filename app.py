@@ -591,7 +591,7 @@ def dang_nhap() -> None:
                     except Exception as e:  # noqa: BLE001
                         done, msg = False, f"Lỗi lưu: {e}"
                     (st.success if done else st.error)(msg)
-        st.caption(APP_VERSION.split(" (")[0] + " · Đức Content 234766")
+        st.caption("Đức Content 234766", help="Liên hệ nếu lỗi: Đức Content 234766 · SĐT 0326606655")
     st.stop()
 
 
@@ -1312,7 +1312,7 @@ def thanh_ben() -> None:
             for k in list(ss.keys()):
                 del ss[k]
             st.rerun()
-        st.caption(APP_VERSION.split(" (")[0] + " · Đức Content 234766", help=APP_VERSION)
+        st.caption("Đức Content 234766", help="Liên hệ nếu lỗi: Đức Content 234766 · SĐT 0326606655")
 
 
 # ============================================================================
