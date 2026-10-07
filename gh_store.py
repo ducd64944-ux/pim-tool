@@ -133,19 +133,19 @@ class Store:
 
     def _req(self, method: str, url: str, **kw) -> requests.Response:
         r = None
-        for lan in range(4):
+        for lan in range(5):
             try:
                 self.so_goi_api += 1
                 r = requests.request(method, API + url, timeout=120, **kw)
             except requests.RequestException:
-                if lan == 3:
+                if lan == 4:
                     raise
                 time.sleep(1.5 * (lan + 1))
                 continue
-            if r.status_code in (502, 503, 504) and lan < 3:
-                time.sleep(1.5 * (lan + 1))
+            if r.status_code in (500, 502, 503, 504) and lan < 4:  # GitHub thỉnh thoảng 500 rỗng: thử lại (tạo blob/tree/commit không phá dữ liệu)
+                time.sleep(1.5 * (lan + 1) + random.random())
                 continue
-            if r.status_code in (403, 429) and "rate limit" in r.text.lower() and lan < 3:
+            if r.status_code in (403, 429) and "rate limit" in r.text.lower() and lan < 4:
                 cho = int(r.headers.get("retry-after", "0") or 0) or 20
                 time.sleep(min(cho, 60))
                 continue

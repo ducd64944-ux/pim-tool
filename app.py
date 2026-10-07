@@ -110,6 +110,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
+HIEN_AI = False  # ẨN toàn bộ tính năng AI (tab, tự học, cấu hình). Bật lại: đổi True — mã AI vẫn giữ nguyên.
 LIEN_HE = {"ten": "Đức Content 234766", "sdt": "0326606655", "line": "1756070012", "email": "nguyenduc6655@gmail.com"}
 
 
@@ -1401,10 +1402,11 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
                            "Tách xin data": x.get("bo_trong", 0), "Chặn ô theo tên": x.get("bo_o_ten", 0), "Cảnh báo": " | ".join(canh or [])})
         luu(["lich_su"], f"Xuất {len(x['files'])} file import")
         # AI tự học: dùng chính lô vừa xuất (coi như đã được xác nhận) làm mẫu cho lần sau
-        try:
-            cap_nhat_ai_hoc_tu_bang(chi_cate=list(chon))
-        except Exception:  # noqa: BLE001
-            pass
+        if HIEN_AI:
+            try:
+                cap_nhat_ai_hoc_tu_bang(chi_cate=list(chon))
+            except Exception:  # noqa: BLE001
+                pass
         ss.xuat_ver = ss.get("ver", 0)
     x = ss.get("xuat")
     if x and ss.get("xuat_ver") != ss.get("ver", 0):
@@ -2504,12 +2506,18 @@ def trang_map() -> None:
     kc_n = int(kcl["Mức"].isin(["CAO", "TB"]).sum()) if len(kcl) else 0
     nql = nq()["loi"]
     nq_n = int(nql["Mức"].isin(["CAO", "TB"]).sum()) if len(nql) else 0
-    (t_qc, t_kc, t_nq, t_cb, t_ht, t_ds, t_ai, t_khac, t_sku, t_dv, t_rong, t_kt, t_cm, t_log) = st.tabs([
+    _nhan_tab = [
         "🛡️ QC tổng hợp", f"✅ Kiểm chứng SKU ↔ DATA SP{' (' + str(kc_n) + ')' if kc_n else ' ✔'}",
         f"🧭 Nhất quán ngành{' (' + str(nq_n) + ')' if nq_n else ' ✔'}", "⚠️ Cảnh báo",
         "📈 Độ hoàn thiện & quy tắc", "🧾 Đối soát CMS → kết quả", "💡 Gợi ý thông minh & AI",
         "≠ Khác spec PIM (sửa)", "🔎 Theo SKU + FILTER", "📏 Đơn vị & biến đổi hàng loạt", "🚫 Không / Đang cập nhật",
-        "📐 Gộp / tách kích thước", "🧩 Thuộc tính chưa map", "📜 Log map"])
+        "📐 Gộp / tách kích thước", "🧩 Thuộc tính chưa map", "📜 Log map"]
+    if not HIEN_AI:
+        _nhan_tab = [x for x in _nhan_tab if "AI" not in x]
+    _tabs = list(st.tabs(_nhan_tab))
+    if not HIEN_AI:
+        _tabs.insert(6, None)
+    (t_qc, t_kc, t_nq, t_cb, t_ht, t_ds, t_ai, t_khac, t_sku, t_dv, t_rong, t_kt, t_cm, t_log) = _tabs
     with t_qc:
         tab_qc(k)
     with t_kc:
@@ -2522,8 +2530,9 @@ def trang_map() -> None:
         tab_hoan_thien()
     with t_ds:
         tab_doi_soat()
-    with t_ai:
-        tab_ai(k)
+    if t_ai is not None:
+        with t_ai:
+            tab_ai(k)
     with t_khac:
         tab_khac(k)
     with t_sku:
@@ -4731,7 +4740,8 @@ def kiem_tra_he_thong() -> None:
     st.dataframe(pd.DataFrame([{"": "✅" if ok else "❌", "Hạng mục": a, "Chi tiết": b} for a, ok, b in kq]),
                  hide_index=True, width="stretch")
     chan_doan_kho_user()
-    thu_vien_ai_hoc()
+    if HIEN_AI:
+        thu_vien_ai_hoc()
 
 
 def thu_vien_ai_hoc() -> None:
@@ -4827,29 +4837,30 @@ def trang_quan_tri() -> None:
                      "Số lần xuất": len(ls), "Xuất gần nhất": ls[-1]["Lúc"] if ls else ""})
     st.dataframe(pd.DataFrame(rows), hide_index=True)
     st.caption("Mở workspace của tài khoản khác: chọn ở ô 'Workspace đang xem' trên thanh bên.")
-    st.markdown("#### 🤖 AI miễn phí")
-    ai = tao_ai()
-    st.caption(f"Đang dùng: {ai.mo_ta} · key: {'đã cấu hình' if ai.key else 'CHƯA có'}. Cấu hình cố định trong Secrets: "
-               "AI_PROVIDER = \"groq\" | \"gemini\" | \"openrouter\", AI_API_KEY = \"...\", AI_MODEL = \"...\" (tuỳ chọn).")
-    c = st.columns(2)
-    if c[0].button("🔌 Kiểm tra kết nối AI", disabled=not ai.co_san):
-        try:
-            st.success("AI trả lời: " + AIH.AI.chat(ai, [{"role": "user", "content": "Trả lời đúng 1 chữ: OK"}], 20)[:80])
-        except AIH.LoiAI as e:
-            st.error(str(e))
-    if c[1].button("📃 Liệt kê model", disabled=not ai.key):
-        try:
-            st.write(ai.ds_model())
-        except AIH.LoiAI as e:
-            st.error(str(e))
-    st.markdown("#### 🔑 API key AI (dùng chung cả nhóm, nhập 1 lần trong Secrets)")
-    huong_dan_secrets_ai()
-    st.caption("Key để trong Secrets của Streamlit (không lưu lên kho dữ liệu vì kho đang Public — tránh lộ key và "
-               "nhà cung cấp tự thu hồi). Đổi key: sửa dòng AI_API_KEY trong Secrets → Save.")
-    if (ss.get("ai_cau_hinh") or {}).get("api_key") and st.button("🗑 Xoá key cũ lưu trên kho"):
-        ss.ai_cau_hinh = {}
-        if luu(["shared:ai_cau_hinh"], f"[{ss.user}] Xoá AI config"):
-            st.rerun()
+    if HIEN_AI:
+        st.markdown("#### 🤖 AI miễn phí")
+        ai = tao_ai()
+        st.caption(f"Đang dùng: {ai.mo_ta} · key: {'đã cấu hình' if ai.key else 'CHƯA có'}. Cấu hình cố định trong Secrets: "
+                   "AI_PROVIDER = \"groq\" | \"gemini\" | \"openrouter\", AI_API_KEY = \"...\", AI_MODEL = \"...\" (tuỳ chọn).")
+        c = st.columns(2)
+        if c[0].button("🔌 Kiểm tra kết nối AI", disabled=not ai.co_san):
+            try:
+                st.success("AI trả lời: " + AIH.AI.chat(ai, [{"role": "user", "content": "Trả lời đúng 1 chữ: OK"}], 20)[:80])
+            except AIH.LoiAI as e:
+                st.error(str(e))
+        if c[1].button("📃 Liệt kê model", disabled=not ai.key):
+            try:
+                st.write(ai.ds_model())
+            except AIH.LoiAI as e:
+                st.error(str(e))
+        st.markdown("#### 🔑 API key AI (dùng chung cả nhóm, nhập 1 lần trong Secrets)")
+        huong_dan_secrets_ai()
+        st.caption("Key để trong Secrets của Streamlit (không lưu lên kho dữ liệu vì kho đang Public — tránh lộ key và "
+                   "nhà cung cấp tự thu hồi). Đổi key: sửa dòng AI_API_KEY trong Secrets → Save.")
+        if (ss.get("ai_cau_hinh") or {}).get("api_key") and st.button("🗑 Xoá key cũ lưu trên kho"):
+            ss.ai_cau_hinh = {}
+            if luu(["shared:ai_cau_hinh"], f"[{ss.user}] Xoá AI config"):
+                st.rerun()
 
     st.markdown("#### 🆕 Tài khoản thành viên tự đăng ký")
     kho = tk_kho()
@@ -5027,8 +5038,7 @@ try:
         + _it("🧬", "Mapping TSKT", _s_mt)
         + '<span class="st-sep">•</span>'
         + _it("🧮", "FILTER", _s_mf)
-        + '<span class="st-sep">•</span>'
-        + _it("🧠", "AI học", _s_hoc, "cột")
+        + ('<span class="st-sep">•</span>' + _it("🧠", "AI học", _s_hoc, "cột") if HIEN_AI else "")
         + '</div>'
     )
     st.markdown(_html, unsafe_allow_html=True)
