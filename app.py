@@ -120,8 +120,10 @@ def the_lien_he() -> None:
         st.markdown("**Liên hệ nếu lỗi**")
         for nhan, k in (("📞 SĐT", "sdt"), ("💬 LINE ID", "line"), ("✉️ Email", "email")):
             if lh.get(k):
-                st.caption(nhan)
-                st.code(lh[k], language=None)  # có nút sao chép ở góc phải
+                a, b = st.columns([1, 2.4], vertical_alignment="center", gap="small")
+                a.markdown(f"<span style='font-size:.95rem'>{nhan}</span>", unsafe_allow_html=True)
+                with b:
+                    st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
 APP_VERSION = "web-2.8 · 2026-10-07 (thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
