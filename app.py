@@ -135,7 +135,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-3.2 · 2026-10-07 (kiểm tra nhanh trước khi tải · nút Lưu lại · sao lưu zip · tab ổn định · ô số liệu bấm được: mở bảng xem & sửa ngay · thanh Hoàn tác gọn chỉ hiện sau khi thao tác · hàng rào: ô điền theo tên bị chặn khỏi file import tới khi duyệt, luôn mặc định Tắt · logo Điện máy XANH · bấm tab không còn nhảy về tab đầu · sửa lỗi bảng rỗng/trùng bảng, ô lỗi luôn hiện đủ chữ · giao diện dễ đọc: tab dạng nút, chữ dài thu gọn rê chuột để xem, chữ to · logo mới · key AI đọc chuẩn từ Secrets · QC ngầm nhất quán ngành ↔ DATA SP ↔ mapping TSKT/FILTER ↔ DATA PIM · chữ ô màu rõ hơn · kiểm chứng SKU ↔ DATA SP · lọc ký tự ẩn · UX phản hồi + bớt tick · giao diện chuẩn chỉnh gửi sếp · AI tự học sau mỗi lần xuất · QC ngược · UI gọn hơn · AI config dùng chung · AI rà soát toàn bộ · 1-click add cấu hình ngành từ SKU · xuất file ngay trong vùng Kiểm tra · bấm lỗi → bảng sửa riêng kiểu Excel · giao diện mới · 3 vùng ngang như 66.py · nạp→map→kiểm tra 1 trang · xem dữ liệu · nạp lại data gốc · nạp theo từng vùng · biến thể màu → MODEL · tự tạo tài khoản · nạp 1 cục · QC tổng hợp · biến đổi hàng loạt · xin data CMS)"
+APP_VERSION = "web-3.3 · 2026-10-07 (tối ưu UI: xóa hiển thị trùng lặp, dọn code thừa, thanh kho tương tác thay thế hoàn toàn status strip cũ)"
 ss = st.session_state
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
@@ -221,15 +221,6 @@ div[data-testid="stCaptionContainer"], div[data-testid="stCaptionContainer"] p {
 /* Sidebar */
 section[data-testid="stSidebar"] {background: var(--bg); border-right: 1px solid var(--line);}
 section[data-testid="stSidebar"] .stMarkdown {color: var(--ink-2);}
-/* Status strip */
-.status-strip {background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
-  padding: 10px 14px; margin: 8px 0 14px; display: flex; gap: 18px; flex-wrap: wrap;
-  font-size: .85rem; color: var(--ink-2); align-items: center;
-  box-shadow: 0 1px 2px rgba(15,23,42,.03);}
-.status-strip .st-item {display: flex; align-items: center; gap: 6px;}
-.status-strip .st-item b {color: var(--ink); font-weight: 700;}
-.status-strip .st-item.zero b {color: #64748b; font-weight: 600;}
-.status-strip .st-sep {color: var(--line); font-size: 1rem;}
 /* ===== PHẢN HỒI CHUỘT / BÀN PHÍM ===== */
 .stButton>button, .stDownloadButton>button, .stFormSubmitButton>button {cursor: pointer;
   transition: background .12s, border-color .12s, color .12s, transform .06s, box-shadow .12s;}
@@ -360,7 +351,6 @@ div[data-testid="stExpander"] details[open] > summary {background: var(--brand-t
 /* Ô bảng số liệu & thanh trạng thái to hơn chút */
 div[data-testid="stMetricValue"] {font-size: 1.5rem;}
 div[data-testid="stMetricLabel"] p {font-size: .9rem !important;}
-.status-strip {font-size: .95rem;}
 /* Thông báo rõ: chữ đậm vừa, cỡ chuẩn */
 div[data-testid="stAlert"] p {font-size: 1rem; line-height: 1.55;}
 /* ===== Nhận diện Điện máy XANH (web-2.6) ===== */
@@ -1458,48 +1448,6 @@ def thanh_ben() -> None:
         the_lien_he()
 
 
-# ============================================================================
-# TRANG: TỔNG QUAN
-# ============================================================================
-def trang_tong_quan() -> None:
-    st.title("🏁 Làm nhanh — 3 bước")
-    c = st.columns(6)
-    c[0].metric("SKU trong IMPORT", f"{len(ss['import']):,}")
-    c[1].metric("Dòng DATA SP", f"{len(ss.data_sp):,}")
-    c[2].metric("SKU có spec PIM cũ", f"{ss.spec.sku.nunique():,}" if len(ss.spec) else "0")
-    c[3].metric("Ngành hàng đã map", len(ss.bang))
-    c[4].metric("Ô sửa tay", len(ss.sua))
-    c[5].metric("Ngành có cấu hình", len(ss.cau_hinh))
-    if ss.admin and so_cho_duyet():
-        st.warning(f"📥 Có **{so_cho_duyet()} đề xuất sửa dữ liệu CMS** đang chờ bạn duyệt — trang 📮 → tab Duyệt.")
-    if not ss.cau_hinh or not len(ss.map_tskt):
-        st.info("Lần đầu dùng (admin): ở bước ① nạp file workspace theo mẫu và tick **cập nhật mapping / cấu hình / "
-                "DATA PIM dùng chung**.")
-    for m in ss.pop("flash", []) or []:
-        st.success(m)
-    for m in ss.pop("flash_err", []) or []:
-        st.error(m)
-    xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
-    with st.expander(f"{'✅' if xong1 else '①'} Bước 1 — Nạp dữ liệu (1 cục, tự nhận, tự lọc)", expanded=not xong1):
-        khu_nap_nhanh("ln")
-    xong2 = not bang_trong()
-    with st.expander(f"{'✅' if xong2 else '②'} Bước 2 — Map + QC", expanded=xong1):
-        c = st.columns([1, 3])
-        if c[0].button("② Map dữ liệu", type="primary", disabled=not xong1, key="ln_nut_map", width="stretch"):
-            chay_map_ui()
-        if ss.meta.get("luc"):
-            c[1].caption(f"Map lần cuối: {ss.meta['luc']} — chi tiết từng vùng ở trang 🚀 Map & kiểm tra.")
-        if xong2:
-            tab_qc(kq())
-    with st.expander("③ Bước 3 — Xuất file import (+ file xin data CMS)", expanded=xong2):
-        if xong2:
-            _cn = _chan_nhanh()
-            xuat_gon("ln", None, _cn, can_xn=bool(_cn))
-    if ss.lich_su:
-        st.markdown("#### Lần xuất gần đây")
-        st.dataframe(pd.DataFrame(ss.lich_su[-10:][::-1]), hide_index=True)
-
-
 def _chan_nhanh() -> list:
     """Lỗi chặn cho nút Xuất nhanh: chỉ lỗi lệch SKU / không nguồn (kiểm chứng) và thiếu khoá import."""
     try:
@@ -2209,73 +2157,6 @@ def xem_du_lieu() -> None:
                     "để thêm đơn vị cho dài / rộng / cao / khối lượng…")
         st.caption(f"Ô sửa tay: {len(ss.sua):,} · quy tắc Không/Đang cập nhật: "
                    f"{len([v for v in ss.rong.values() if v[0] != C.HD_GIU])}")
-
-
-def trang_nap() -> None:
-    st.title("📥 Nạp dữ liệu → Map → Kiểm tra đối chiếu")
-    ph_so = st.container()  # ô số liệu: vẽ SAU CÙNG để phản ánh dữ liệu vừa nạp trong cùng lượt
-
-    def ve_so() -> None:
-        with ph_so:
-            c = st.columns(6)
-            c[0].metric("SKU trong IMPORT", f"{len(ss['import']):,}")
-            c[1].metric("Dòng DATA SP", f"{len(ss.data_sp):,}")
-            c[2].metric("Ngành có cấu hình", len(ss.cau_hinh))
-            c[3].metric("Mapping TSKT", f"{len(ss.map_tskt):,}")
-            c[4].metric("Mapping FILTER", f"{len(ss.map_filter):,}")
-            c[5].metric("Option DATA PIM", f"{len(ss.data_pim):,}")
-    st.markdown("<div class='buoc'><b>① Nạp</b> (lô hoặc data gốc) → <b>② bấm Map</b> → <b>③ kiểm tra đối chiếu ngay "
-                "bên dưới</b>, thêm đơn vị / gộp kích thước, rồi sang trang 📤 Xuất.</div>", unsafe_allow_html=True)
-    t1, t2, t3 = st.tabs(["① Nạp dữ liệu lô", "🗄️ Data gốc (TSKT · FILTER · DATA PIM · cấu hình)", "👀 Xem dữ liệu đã nạp"])
-    with t1:
-        khu_nap_nhanh("nap")
-        with st.expander("Nạp riêng từng loại file (nâng cao)"):
-            khu_nap_rieng()
-    with t2:
-        khu_nap_mau()
-    with t3:
-        xem_du_lieu()
-    st.divider()
-    xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
-    st.markdown("### ② Map")
-    if len(ss.data_sp):
-        _d = nq()
-        _L = _d["loi"]
-        _c = int((_L["Mức"] == "CAO").sum()) if len(_L) else 0
-        _t = int((_L["Mức"] == "TB").sum()) if len(_L) else 0
-        _o = st.container(border=True)
-        _o.markdown(("⛔" if _c else ("⚠️" if _t else "✅")) + f" **QC ngầm trước khi map** — {len(_d['nganh'])} ngành · "
-                    f"{_c} lỗi · {_t} cần xem (cấu hình · mapping TSKT/FILTER · DATA PIM)")
-        if _o.checkbox("Xem chi tiết QC ngầm", value=bool(_c), key="nq_truoc_map_xem2"):
-            with _o:
-                hien_nhat_quan(_d, "truoc_map", gon=True)
-    cm = st.columns([1.2, 3])
-    if cm[0].button("🚀 Map dữ liệu", type="primary", disabled=not xong1, key="nap_nut_map", width="stretch"):
-        chay_map_ui()
-    cm[1].caption(f"Map lần cuối: {ss.meta['luc']}" if ss.meta.get("luc") else
-                  ("Bấm Map để sinh vùng kiểm tra đối chiếu." if xong1 else "Cần có IMPORT và DATA SP trước."))
-    if bang_trong():
-        ve_so()
-        return
-    st.markdown("### ③ Kiểm tra & đối chiếu")
-    k = kq()
-    the_so(k)
-    tb = st.tabs(["🛡️ QC tổng hợp", "🧾 Đối soát CMS → kết quả", "📏 Đơn vị & kích thước (dài · rộng · cao)",
-                  "📐 Gộp / tách kích thước", "🚫 Không / Đang cập nhật", "≠ Khác spec PIM"])
-    with tb[0]:
-        tab_qc(k)
-    with tb[1]:
-        tab_doi_soat()
-    with tb[2]:
-        tab_don_vi(k)
-    with tb[3]:
-        tab_tach_kt()
-    with tb[4]:
-        tab_rong(k)
-    with tb[5]:
-        tab_khac(k)
-    st.caption("Đủ bộ tab (cảnh báo, gợi ý AI, theo SKU…) ở trang 🚀 Map & kiểm tra. Kiểm tra xong → trang 📤 Xuất file import.")
-    ve_so()
 
 
 def khu_nap_rieng() -> None:
@@ -5132,7 +5013,6 @@ def trang_quan_tri() -> None:
 
 def vung_chay() -> None:
     """VÙNG 1 (giống tab 🚀 Chạy pipeline của 66.py): ① Nạp → ② Map → ③ Xuất."""
-    ph_so = st.container()
     for m in ss.pop("flash", []) or []:
         st.success(m)
     for m in ss.pop("flash_err", []) or []:
@@ -5148,14 +5028,6 @@ def vung_chay() -> None:
         khu_nap_mau()
     with t3:
         xem_du_lieu()
-    with ph_so:
-        c = st.columns(6)
-        c[0].metric("SKU trong IMPORT", f"{len(ss['import']):,}")
-        c[1].metric("Dòng DATA SP", f"{len(ss.data_sp):,}")
-        c[2].metric("Ngành có cấu hình", len(ss.cau_hinh))
-        c[3].metric("Mapping TSKT", f"{len(ss.map_tskt):,}")
-        c[4].metric("Mapping FILTER", f"{len(ss.map_filter):,}")
-        c[5].metric("Option DATA PIM", f"{len(ss.data_pim):,}")
     st.divider()
     xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
     st.markdown("### ② Map")
@@ -5252,10 +5124,6 @@ try:
     _s_ch = len(ss.get('cau_hinh', {}))
     _s_mt = len(ss.get('map_tskt', []))
     _s_mf = len(ss.get('map_filter', []))
-    _s_hoc = sum(len(v) for v in (ss.get('ai_hoc') or {}).values())
-    def _it(ic, nhan, val, don_vi=""):
-        cls = " zero" if (isinstance(val, int) and val == 0) else ""
-        return f'<span class="st-item{cls}">{ic} {nhan} <b>{val:,}</b>{(" " + don_vi) if don_vi else ""}</span>'
     thanh_kho([("import", "IMPORT", _s_imp, "SKU"), ("data_sp", "DATA SP", _s_dsp, "dòng"),
                ("spec", "Spec cũ", _s_spec, "SKU"), ("bang", "Kết quả map", _s_bang_sku, f"SKU · {_s_bang_cate} ngành"),
                ("cau_hinh", "Cấu hình", _s_ch, "ngành"), ("map_tskt", "Mapping TSKT", _s_mt, "dòng"),
