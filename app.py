@@ -348,6 +348,10 @@ section[data-testid="stSidebar"] .stButton>button p {white-space: nowrap; font-s
 [class*="st-key-the_"]:not([class*="the_dong"]) button p strong {font-size: 1.5rem; display: inline-block;}
 /* Nút XEM bự */
 [class*="st-key-xem_"] button {min-height: 62px; font-size: 1.15rem; font-weight: 700;}
+/* Thanh dữ liệu đang nạp: ô nhỏ gọn, bấm được */
+[class*="st-key-kho_"]:not([class*="kho_dong"]):not([class*="kho_ok"]):not([class*="kho_xoa"]) button {min-height: 64px;
+  padding: 6px 10px; white-space: normal; line-height: 1.3;}
+[class*="st-key-kho_"] button p {font-size: .9rem; text-align: center;}
 /* web-2.9: KHÔNG còn hiệu ứng rê chuột đổi kích thước/vị trí (gây giật, lag khi cuộn): chữ luôn hiện đủ, đứng yên */
 div[data-testid="stCaptionContainer"] p {font-size: .93rem; line-height: 1.55;}
 /* VÙNG đang trỏ chuột: viền xanh + bóng → biết đang làm ở khung nào */
@@ -964,6 +968,67 @@ def luu(phan: list, thong_diep: str, them_file: dict | None = None, ghi_de: dict
         ss._luu_lai = (list(phan), thong_diep)
         st.error(f"⚠️ CHƯA LƯU ĐƯỢC: {msg} — dữ liệu vẫn còn trên màn hình, bấm «🔁 Lưu lại» ở đầu trang.")
     return ok
+
+
+def thanh_kho(items: list) -> None:
+    """Thanh dữ liệu đang nạp: mỗi ô là NÚT — bấm để xem bảng; dữ liệu lô có nút Làm sạch."""
+    sel = ss.get("kho_chon")
+    cols = st.columns(len(items))
+    for c, (k_, nhan, n, dv) in zip(cols, items):
+        if c.button(f"{nhan}  \n**{n:,}** {dv}", key=f"kho_{k_}", width="stretch",
+                    type="primary" if sel == k_ else "secondary"):
+            ss.kho_chon = None if sel == k_ else k_
+            st.rerun()
+    if not sel:
+        return
+    nhan = next((x[1] for x in items if x[0] == sel), sel)
+    with st.container(border=True):
+        top = st.columns([6, 1])
+        top[0].markdown(f"**{nhan}** — đang có trong tool")
+        if top[1].button("✕ Đóng", key="kho_dong"):
+            ss.kho_chon = None
+            st.rerun()
+        try:
+            if sel in ("import", "data_sp", "spec"):
+                df = ss.get(sel)
+                if df is None or not len(df):
+                    st.success("Trống — không có dữ liệu.")
+                else:
+                    st.caption(f"{len(df):,} dòng" + (" — hiện 300 dòng đầu" if len(df) > 300 else ""))
+                    st.dataframe(df.head(300), hide_index=True, width="stretch", height=300)
+                    ok = st.checkbox("Tôi chắc chắn muốn xoá dữ liệu này", key=f"kho_ok_{sel}")
+                    if st.button(f"🧹 Làm sạch {nhan}", disabled=not ok, key=f"kho_xoa_{sel}"):
+                        ss[sel] = df.iloc[0:0]
+                        ss.pop("xuat", None)
+                        ss.kho_chon = None
+                        bump()
+                        luu([sel], f"Làm sạch {nhan}")
+                        st.rerun()
+            elif sel == "bang":
+                if not ss.get("bang"):
+                    st.success("Chưa có kết quả map.")
+                else:
+                    st.dataframe(pd.DataFrame([{"Ngành": c_, "Tên": b_["title"], "Số SKU": len(b_["rows"])}
+                                               for c_, b_ in ss.bang.items()]), hide_index=True, width="stretch",
+                                 height=min(300, 60 + 35 * len(ss.bang)))
+                    ok = st.checkbox("Tôi chắc chắn muốn xoá kết quả map", key="kho_ok_bang")
+                    if st.button("🧹 Làm sạch kết quả map", disabled=not ok, key="kho_xoa_bang"):
+                        ss.bang, ss.meta = {}, {}
+                        ss.pop("xuat", None)
+                        ss.kho_chon = None
+                        bump()
+                        luu(["ket_qua"], "Làm sạch kết quả map")
+                        st.rerun()
+            elif sel == "cau_hinh":
+                st.dataframe(pd.DataFrame([{"Ngành": c_, "Tên": v.get("ten", ""), "Số cột": len(v.get("cot", []))}
+                                           for c_, v in ss.cau_hinh.items()]), hide_index=True, width="stretch", height=300)
+                st.caption("Dữ liệu dùng chung — sửa ở ⚙️ Cấu hình & mapping.")
+            else:
+                df = ss.get(sel)
+                st.caption(f"{len(df):,} dòng — hiện 300 dòng đầu. Dữ liệu dùng chung, sửa ở ⚙️ Cấu hình & mapping.")
+                st.dataframe(df.head(300), hide_index=True, width="stretch", height=300)
+        except Exception as e:  # noqa: BLE001
+            st.info(f"Không hiển thị được bảng này ({type(e).__name__}).")
 
 
 def thanh_luu_lai() -> None:
@@ -5191,25 +5256,10 @@ try:
     def _it(ic, nhan, val, don_vi=""):
         cls = " zero" if (isinstance(val, int) and val == 0) else ""
         return f'<span class="st-item{cls}">{ic} {nhan} <b>{val:,}</b>{(" " + don_vi) if don_vi else ""}</span>'
-    _html = (
-        '<div class="status-strip">'
-        + _it("📋", "IMPORT", _s_imp, "SKU")
-        + '<span class="st-sep">•</span>'
-        + _it("📦", "DATA SP", _s_dsp, "dòng")
-        + '<span class="st-sep">•</span>'
-        + _it("🧾", "spec cũ", _s_spec, "SKU")
-        + '<span class="st-sep">•</span>'
-        + _it("🗂️", "bang", _s_bang_sku, f"SKU/{_s_bang_cate} ngành")
-        + '<span class="st-sep">•</span>'
-        + _it("🏷️", "Cấu hình", _s_ch, "ngành")
-        + '<span class="st-sep">•</span>'
-        + _it("🧬", "Mapping TSKT", _s_mt)
-        + '<span class="st-sep">•</span>'
-        + _it("🧮", "FILTER", _s_mf)
-        + ('<span class="st-sep">•</span>' + _it("🧠", "AI học", _s_hoc, "cột") if HIEN_AI else "")
-        + '</div>'
-    )
-    st.markdown(_html, unsafe_allow_html=True)
+    thanh_kho([("import", "IMPORT", _s_imp, "SKU"), ("data_sp", "DATA SP", _s_dsp, "dòng"),
+               ("spec", "Spec cũ", _s_spec, "SKU"), ("bang", "Kết quả map", _s_bang_sku, f"SKU · {_s_bang_cate} ngành"),
+               ("cau_hinh", "Cấu hình", _s_ch, "ngành"), ("map_tskt", "Mapping TSKT", _s_mt, "dòng"),
+               ("map_filter", "FILTER", _s_mf, "dòng")])
 except Exception:
     pass
 thanh_luu_lai()
