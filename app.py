@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-3.4 · 2026-10-07"
+APP_VERSION = "web-3.5 · 2026-10-07"
 ss = st.session_state
 
 
@@ -178,9 +178,9 @@ def _hien_loi_vui() -> None:
 
 
 def _gio_vn() -> str:
-    """Trả về giờ Việt Nam dạng '11:01 PM giờ Việt Nam · UTC+7'."""
+    """Trả về giờ Việt Nam dạng '11:01 PM'."""
     now = datetime.now(_TZ_VN)
-    return now.strftime("%-I:%M %p").replace("AM", "AM").replace("PM", "PM") + " giờ Việt Nam · UTC+7"
+    return now.strftime("%-I:%M %p").replace("AM", "AM").replace("PM", "PM")
 
 # CSS: KHÔNG được có dòng trống bên trong (Markdown sẽ kết thúc khối HTML ở dòng trống -> CSS bị in ra thành chữ)
 _CSS = """<style>
@@ -193,8 +193,13 @@ _CSS = """<style>
 }
 html, body, [class*="css"], .stApp {font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;}
 #MainMenu, footer, .viewerBadge_container__r5tak, .viewerBadge_link__qRIco,
-div[data-testid="manage-app-button"], .stDeployButton {display: none !important; visibility: hidden !important;}
-footer {visibility: hidden !important;}
+div[data-testid="manage-app-button"], .stDeployButton,
+a[href*="streamlit.io"], a[href*="streamlit.app"],
+div[class*="viewerBadge"], span[class*="viewerBadge"],
+iframe[title="badge"], .st-emotion-cache-h4xjwg,
+div[data-testid="manage-app-button"] ~ div,
+div.stActionButton {display: none !important; visibility: hidden !important; height: 0 !important; width: 0 !important; overflow: hidden !important;}
+footer, footer * {visibility: hidden !important; display: none !important; height: 0 !important;}
 /* Giữ header (chứa chỉ báo "Đang chạy…" khi bấm) nhưng trong suốt; ẩn nút Deploy/menu */
 header[data-testid="stHeader"] {background: transparent; height: 2.4rem;}
 div[data-testid="stToolbar"] {visibility: hidden;}
@@ -445,10 +450,10 @@ section[data-testid="stFileUploaderDropzone"] {border-color: #64748b;}
 </style>
 <script>
 (function(){var u=function(){var c=document.querySelectorAll('.brand-bar .chip');if(!c.length)return;
-var t=c[c.length-1];if(!t.textContent.includes('giờ Việt Nam'))return;
+var t=c[c.length-1];if(!t.textContent.includes('🕐'))return;
 var d=new Date();var h=d.getUTCHours()+7;if(h>=24)h-=24;var m=d.getUTCMinutes();
 var ap=h>=12?'PM':'AM';var h12=h%12||12;
-t.textContent='🕐 '+h12+':'+(m<10?'0':'')+m+' '+ap+' giờ Việt Nam · UTC+7';};
+t.textContent='🕐 '+h12+':'+(m<10?'0':'')+m+' '+ap;};
 u();setInterval(u,30000);})();
 </script>"""
 st.markdown(re.sub(r"\n\s*\n", "\n", _CSS), unsafe_allow_html=True)
@@ -1509,7 +1514,8 @@ def thanh_ben() -> None:
             for k in list(ss.keys()):
                 del ss[k]
             st.rerun()
-        the_lien_he()
+        if ss.admin:
+            the_lien_he()
         # Admin: xem nhật ký lỗi
         if ss.admin and ss.get("_nhat_ky_loi"):
             st.divider()
@@ -2613,16 +2619,23 @@ def trang_map() -> None:
     st.title("🔍 Kiểm tra & Đối chiếu")
     if ss.get("map_flash"):
         st.success(ss.pop("map_flash"))
+    # --- RÀO BƯỚC 1: phải nạp dữ liệu trước khi map ---
+    _co_import = len(ss.get("import", [])) > 0
+    _co_data_sp = len(ss.get("data_sp", [])) > 0
+    if not _co_import and not _co_data_sp and not ss.get("bang"):
+        st.warning("⚠️ **Chưa có dữ liệu** — vào **🚀 Chạy pipeline → ① Nạp dữ liệu** nạp file lô trước, rồi quay lại đây.")
+        return
     # Cảnh báo khi kết quả map CÓ nhưng IMPORT/DATA SP TRỐNG — thường do session trước lưu được ket_qua
     # mà không lưu được import/data_sp (crash giữa chừng). Người dùng cần nạp lại.
-    if ss.bang and (not len(ss.get("import", [])) or not len(ss.get("data_sp", []))):
+    if ss.bang and (not _co_import or not _co_data_sp):
         st.warning("⚠️ Kết quả map có sẵn ({} ngành) nhưng **IMPORT ({} SKU) hoặc DATA SP ({} dòng) đang trống** "
                    "trong kho — có thể lần nạp trước bị lỗi lưu. Bạn cần vào 🚀 Chạy pipeline → ① Nạp dữ liệu "
                    "nạp lại file lô (SKU + DATA SP), sau đó bấm Map lại.".format(
                        len(ss.bang), len(ss.get("import", [])), len(ss.get("data_sp", []))))
+    _xong_nap = _co_import and _co_data_sp
     c1, c2, c3 = st.columns([2, 3, 2])
     with c1:
-        if st.button("① Map dữ liệu", type="primary", width="stretch"):
+        if st.button("① Map dữ liệu", type="primary", width="stretch", disabled=not _xong_nap):
             chay_map_ui()
     with c2:
         mt = st.selectbox("Thuộc tính chưa có trong MAPPING (theo mã) — map dự phòng theo tên:",
@@ -4604,6 +4617,10 @@ def _cot_hien(df: pd.DataFrame, bo: tuple = ()) -> pd.DataFrame:
 
 def trang_de_xuat() -> None:
     st.title("📮 Đề xuất sửa dữ liệu CMS")
+    # --- RÀO: phải có dữ liệu đã map trước mới tạo đề xuất ---
+    if not len(ss.get("import", [])) and not len(ss.get("data_sp", [])) and bang_trong():
+        st.info("⏳ Chưa có dữ liệu — vào **🚀 Chạy pipeline** nạp file lô và map trước, rồi quay lại đây tạo đề xuất.")
+        return
     st.markdown("<div class='buoc'>Dữ liệu CMS (TSKT/FILTER) sai 1–2 giá trị → <b>thành viên đề xuất sửa</b>: áp dụng "
                 "<b>ngay</b> cho workspace của mình (map lại là có) → <b>admin duyệt</b> → thành quy tắc <b>dùng chung lâu dài"
                 "</b> cho mọi tài khoản, mọi lô sau. Bị từ chối thì quy tắc thôi áp (map lại để cập nhật).</div>",
@@ -5107,17 +5124,20 @@ def vung_chay() -> None:
     st.divider()
     xong1 = len(ss.data_sp) > 0 and len(ss["import"]) > 0
     st.markdown("### ② Map")
-    if len(ss.data_sp):
-        _d = nq()
-        _L = _d["loi"]
-        _c = int((_L["Mức"] == "CAO").sum()) if len(_L) else 0
-        _t = int((_L["Mức"] == "TB").sum()) if len(_L) else 0
-        _o = st.container(border=True)
-        _o.markdown(("⛔" if _c else ("⚠️" if _t else "✅")) + f" **QC ngầm trước khi map** — {len(_d['nganh'])} ngành · "
-                    f"{_c} lỗi · {_t} cần xem (cấu hình · mapping TSKT/FILTER · DATA PIM)")
-        if _o.checkbox("Xem chi tiết QC ngầm", value=bool(_c), key="nq_truoc_map_xem"):
-            with _o:
-                hien_nhat_quan(_d, "truoc_map_v", gon=True)
+    if not xong1:
+        st.info("⏳ **Bước ①** chưa xong — nạp IMPORT và DATA SP ở trên trước, rồi quay xuống đây bấm Map.")
+    else:
+        if len(ss.data_sp):
+            _d = nq()
+            _L = _d["loi"]
+            _c = int((_L["Mức"] == "CAO").sum()) if len(_L) else 0
+            _t = int((_L["Mức"] == "TB").sum()) if len(_L) else 0
+            _o = st.container(border=True)
+            _o.markdown(("⛔" if _c else ("⚠️" if _t else "✅")) + f" **QC ngầm trước khi map** — {len(_d['nganh'])} ngành · "
+                        f"{_c} lỗi · {_t} cần xem (cấu hình · mapping TSKT/FILTER · DATA PIM)")
+            if _o.checkbox("Xem chi tiết QC ngầm", value=bool(_c), key="nq_truoc_map_xem"):
+                with _o:
+                    hien_nhat_quan(_d, "truoc_map_v", gon=True)
     cm = st.columns([1.2, 3])
     if cm[0].button("🚀 Map dữ liệu", type="primary", disabled=not xong1, key="nap_nut_map", width="stretch"):
         chay_map_ui()
@@ -5129,8 +5149,10 @@ def vung_chay() -> None:
                   ("Map xong tool tự chuyển sang vùng 🔍 Kiểm tra & Đối chiếu." if xong1 else
                    "Cần có IMPORT và DATA SP trước."))
     st.markdown("### ③ Xuất file import")
-    if bang_trong():
-        st.caption("Map xong mới xuất được.")
+    if not xong1:
+        st.info("⏳ **Bước ① → ②** chưa xong — nạp dữ liệu và map trước, rồi xuất ở đây.")
+    elif bang_trong():
+        st.caption("⏳ Bấm **② Map** ở trên trước — map xong mới xuất được.")
     else:
         _cn = _chan_nhanh()
         xuat_gon("ln", None, _cn, can_xn=bool(_cn))
