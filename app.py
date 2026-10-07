@@ -110,7 +110,7 @@ import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
 from gh_store import KHONG_CO, Store, bytes_to_df, bytes_to_json, df_to_bytes, git_sha, json_to_bytes  # noqa: E402
 
-LIEN_HE = {"ten": "Đức Content 234766", "sdt": "0326606655", "line": ""}  # điền LINE ID vào "line"
+LIEN_HE = {"ten": "Đức Content 234766", "sdt": "0326606655", "line": "1756070012", "email": "nguyenduc6655@gmail.com"}
 
 
 def the_lien_he() -> None:
@@ -120,6 +120,8 @@ def the_lien_he() -> None:
     dong = f"<div><span>📞 SĐT</span><b>{_h.escape(lh['sdt'])}</b></div>"
     if lh.get("line"):
         dong += f"<div><span>💬 LINE ID</span><b>{_h.escape(lh['line'])}</b></div>"
+    if lh.get("email"):
+        dong += f"<div><span>✉️ Email</span><b>{_h.escape(lh['email'])}</b></div>"
     st.markdown(
         "<style>.lh-w{position:relative;display:inline-block;margin:.3rem 0}"
         ".lh-t{font-size:.9rem;opacity:.75;cursor:default;border-bottom:1px dotted currentColor}"
