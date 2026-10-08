@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-3.8 · 2026-10-08"
+APP_VERSION = "web-3.9 · 2026-10-08"
 ss = st.session_state
 
 
@@ -1974,13 +1974,15 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             continue
         ds_gy_cfg.append((ten_file, gy.get("cate_id", ""), cot_gy))
     cat_them = []  # [(cate_id, cate_ten, [(ma,tv),...])]
-    if ds_gy_cfg and duoc_sua_chung():
+    if ds_gy_cfg:
         # KHÔNG dùng st.expander ở đây — khu_nap_nhanh có thể đang nằm trong một expander (vd Trang 🏁 Làm nhanh),
         # Streamlit không cho expander lồng nhau -> crash im lặng -> file có vẻ "không nhận".
         with st.container(border=True):
             st.markdown(f"**➕ Thêm cấu hình ngành từ file SKU** "
                         f"({sum(len(c) for _, _, c in ds_gy_cfg):,} cột gợi ý)")
             st.caption("Xác nhận mã + tên ngành. Ngành đã có chỉ bổ sung cột thiếu. Không muốn thêm thì bỏ tick «Áp dụng».")
+            if not duoc_sua_chung():
+                st.caption("Tài khoản của bạn không phải admin: ngành thêm ở đây chỉ dùng cho phiên làm việc này (chưa lưu chung).")
             for i, (ten_file, cate_gy, cot_gy) in enumerate(ds_gy_cfg):
                 st.markdown(f"**📄 {ten_file}** — {len(cot_gy)} cột thuộc tính")
                 cols = st.columns([1.2, 2.5, 1])
@@ -2042,8 +2044,11 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         luu(["shared:cau_hinh"], "Nạp cấu hình ngành từ file mẫu: " + ", ".join(t for t, _ in ds_ng))
         da_ng = [f"{v['ten']} ({c}) {len(v['cot'])} cột" for c, v in moi_ng.items()]
     # Áp các gợi ý "thêm cấu hình từ file SKU" (chỉ thêm cột còn thiếu, giữ cột cũ)
-    if cat_them and duoc_sua_chung():
-        nap_shared()
+    if cat_them:
+        if duoc_sua_chung():
+            nap_shared()
+        else:
+            ss.cau_hinh = {k: dict(v, cot=list(v.get('cot', [])), ten_cot=dict(v.get('ten_cot', {}))) for k, v in ss.cau_hinh.items()}
         for cid, cten, cot_gy in cat_them:
             o = ss.cau_hinh.setdefault(cid, {"ten": "", "cot": [], "ten_cot": {}})
             if cten and not o.get("ten"):
@@ -2058,7 +2063,8 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                 if tv and ma not in o.get("ten_cot", {}):
                     o.setdefault("ten_cot", {})[ma] = tv
             da_ng.append(f"{(cten or o.get('ten') or cid)} ({cid}) +{them_n} cột")
-        luu(["shared:cau_hinh"], f"Thêm cấu hình ngành từ file SKU: {len(cat_them)} ngành")
+        if duoc_sua_chung():
+            luu(["shared:cau_hinh"], f"Thêm cấu hình ngành từ file SKU: {len(cat_them)} ngành")
     for ten, r in kq:
         if r.get("loai") == "mau":
             if lay_chung and duoc_sua_chung():
