@@ -144,3 +144,22 @@ streamlit run app.py
 | App chậm hoặc văng khi lô rất lớn | Chia lô nhỏ hơn hoặc chạy trên máy công ty |
 | Khung đỏ "Workspace vừa được lưu từ máy khác" | Chọn **Lấy bản trên kho** (an toàn) hoặc **Ghi đè** nếu chắc bản ở máy này đúng |
 | Token sắp hết hạn | Tạo token mới (bước 3), dán vào Secrets, Save |
+
+## Công suất & chạy nhiều người (web-4.6)
+
+Số đo thực (1 phiên, DATA SP 2 triệu dòng, 80.000 SKU): map ≈ 10 giây, RAM đỉnh ≈ 1,4 GB, sau đó giữ ≈ 0,75 GB.
+Ước tính RAM cần = (số người đang mở lô lớn × ~0,8 GB) + 1 lần map đỉnh (~1,5 GB).
+
+| Số người cùng lúc (mỗi người ~2 triệu dòng) | RAM máy chủ nên có |
+|---|---|
+| 1–2 | 4 GB |
+| 5–6 | 8 GB (khuyến nghị 12–16 GB) |
+
+Streamlit Community Cloud (miễn phí) chỉ có ~1–2,7 GB nên KHÔNG đủ cho lô 2 triệu dòng × nhiều người. Cần máy chủ riêng
+(VPS / Cloud Run / Hugging Face Spaces trả phí…) chạy `streamlit run app.py` với cùng Secrets.
+
+Bảo vệ đã có trong app:
+- Việc nặng (Map, Tạo file import) chạy **xếp hàng**: mặc định 1 việc/lần (2 nếu máy ≥ 6 GB RAM). Đổi bằng Secret `PIM_MAX_JOBS`.
+- Trước khi chạy việc nặng, app kiểm tra RAM còn trống; thiếu thì báo rõ, KHÔNG làm sập máy chủ.
+- File xlsx báo cáo chỉ dựng khi bấm tải; tab Đơn vị & biến đổi chạy riêng (fragment).
+- Admin thấy RAM + số việc nặng đang chạy ở chân trang.

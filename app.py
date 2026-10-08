@@ -5,12 +5,15 @@ Bản Streamlit của tool desktop 66.py. Dữ liệu lưu GitHub (xem gh_store.
 """
 from __future__ import annotations
 
+import contextlib
+import gc
 import hashlib
 import hmac
 import os
 import random
 import secrets
 import re
+import threading
 import time
 import traceback
 from collections import Counter
@@ -141,7 +144,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.5 · 2026-10-08"
+APP_VERSION = "web-4.6 · 2026-10-08"
 ss = st.session_state
 
 
@@ -683,6 +686,107 @@ def duoc_sua_chung() -> bool:
     return bool(ss.get("admin")) or str(sec("SHARED_EDIT", "admin")).lower() == "all"
 
 
+# ============================================================================
+# BẢO VỆ TẢI CAO — nhiều người dùng chung 1 máy chủ, lô vài triệu dòng
+# ============================================================================
+def ram_mb() -> tuple:
+    """(đang dùng MB, giới hạn MB hoặc None, còn trống MB) của CONTAINER (cgroup v2/v1), không có thì /proc/meminfo."""
+    def _doc(p):
+        with open(p, encoding="utf-8") as f:
+            return f.read().strip()
+    gh = dung = None
+    try:
+        v = _doc("/sys/fs/cgroup/memory.max")
+        gh = None if v == "max" else int(v)
+        dung = int(_doc("/sys/fs/cgroup/memory.current"))
+        for ln in _doc("/sys/fs/cgroup/memory.stat").splitlines():  # bộ nhớ đệm file thu hồi được -> không tính là đang dùng
+            if ln.startswith("inactive_file "):
+                dung -= int(ln.split()[1])
+                break
+    except Exception:  # noqa: BLE001
+        try:
+            v = int(_doc("/sys/fs/cgroup/memory/memory.limit_in_bytes"))
+            gh = v if v < (1 << 50) else None
+            dung = int(_doc("/sys/fs/cgroup/memory/memory.usage_in_bytes"))
+        except Exception:  # noqa: BLE001
+            pass
+    mi = {}
+    try:
+        for ln in _doc("/proc/meminfo").splitlines():
+            a, _, b = ln.partition(":")
+            mi[a] = int(b.split()[0]) * 1024
+    except Exception:  # noqa: BLE001
+        pass
+    if gh is not None and dung is not None:
+        return dung // 2**20, gh // 2**20, max(0, gh - dung) // 2**20
+    if mi.get("MemTotal"):
+        return (mi["MemTotal"] - mi.get("MemAvailable", 0)) // 2**20, mi["MemTotal"] // 2**20, mi.get("MemAvailable", 0) // 2**20
+    return 0, None, 10**9  # không đọc được -> không chặn
+
+
+@st.cache_resource
+def _dieu_phoi() -> dict:
+    """Dùng CHUNG cho mọi phiên của cả máy chủ: giới hạn số việc nặng chạy cùng lúc (map/xuất file lô lớn)."""
+    try:
+        toi_da = int(sec("PIM_MAX_JOBS", 0) or 0)
+    except (TypeError, ValueError):
+        toi_da = 0
+    if toi_da <= 0:
+        gh = ram_mb()[1]
+        toi_da = 2 if (gh and gh >= 6000) else 1
+    return {"sem": threading.BoundedSemaphore(toi_da), "toi_da": toi_da, "dang": {}, "lk": threading.Lock()}
+
+
+@contextlib.contextmanager
+def viec_nang(ten: str, uoc_mb: int):
+    """Bao quanh việc NẶNG (map, tạo file import lô lớn): (1) đủ RAM mới chạy — thiếu thì báo rõ thay vì làm sập máy chủ;
+    (2) xếp hàng nếu đã có đủ việc nặng đang chạy; (3) dọn bộ nhớ ngay khi xong. Dùng: with viec_nang(..) as ok: if ok: ..."""
+    d = _dieu_phoi()
+    _, gh, con = ram_mb()
+    if con < uoc_mb * 1.15:
+        st.warning(f"⏳ Máy chủ đang đầy bộ nhớ (còn ~{con:,} MB, việc «{ten}» cần ~{uoc_mb:,} MB"
+                   + (f" trên tổng {gh:,} MB" if gh else "") + "). Chờ người khác xong rồi bấm lại, hoặc chia lô nhỏ hơn. "
+                   "Dữ liệu của bạn vẫn an toàn, chưa mất gì.")
+        yield False
+        return
+    co_luot = d["sem"].acquire(blocking=False)
+    if not co_luot:
+        with d["lk"]:
+            ai = ", ".join(sorted({v[0] for v in d["dang"].values()})) or "người khác"
+        cho = st.empty()
+        cho.info(f"⏳ Đang có {len(d['dang'])} việc nặng chạy ({ai}) — bạn đang xếp hàng, tự chạy khi tới lượt…")
+        co_luot = d["sem"].acquire(timeout=300)
+        cho.empty()
+        if not co_luot:
+            st.warning("Hàng đợi đang quá dài — bấm lại sau ít phút. Dữ liệu của bạn vẫn an toàn.")
+            yield False
+            return
+    tid = threading.get_ident()
+    with d["lk"]:
+        d["dang"][tid] = (ss.get("user", "?"), ten, time.time())
+    try:
+        yield True
+    finally:
+        with d["lk"]:
+            d["dang"].pop(tid, None)
+        d["sem"].release()
+        gc.collect()
+
+
+def uoc_mb_map() -> int:
+    """Ước RAM đỉnh khi map ~0,7 KB/dòng DATA SP (đo thực: 2 triệu dòng ≈ 1,4 GB) + nền 150 MB."""
+    return int(150 + len(ss.get("data_sp", [])) * 0.0007)
+
+
+def nut_tai(nhan: str, dung_file, **kw) -> None:
+    """Nút tải: file xlsx chỉ được DỰNG KHI BẤM (data=hàm) thay vì dựng sau mỗi lần chạy lại trang — bảng vài trăm nghìn
+    dòng không còn làm chậm mọi thao tác. Streamlit cũ chưa hỗ trợ -> tự dựng ngay như trước."""
+    try:
+        st.download_button(nhan, dung_file, **kw)
+    except Exception:  # noqa: BLE001
+        st.download_button(nhan, dung_file(), **kw)
+
+
 def duoc_nap_nganh() -> bool:
     """Ai cũng được NẠP/THÊM cấu hình ngành (file mẫu ngành / file SKU). Mọi lần nạp ghi vào lịch sử (commit
     '[người dùng] ...'); admin xem lại + xoá/khôi phục ở Cấu hình → Cấu hình ngành hàng. Muốn siết lại: sửa 1 chỗ này."""
@@ -1208,8 +1312,8 @@ def hien_nhat_quan(d: dict, key: str, gon: bool = False) -> None:
             st.dataframe(hien, hide_index=True, width="stretch", height=min(420, 42 + 35 * min(len(hien), 11)),
                          column_config={"Chi tiết": st.column_config.TextColumn(width="large"),
                                         "Số": st.column_config.NumberColumn(format="%d")})
-            st.download_button("📊 Tải báo cáo nhất quán (.xlsx)",
-                               C.xlsx_nhieu_sheet({"NGÀNH": N, "VẤN ĐỀ": L}),
+            nut_tai("📊 Tải báo cáo nhất quán (.xlsx)",
+                               lambda: C.xlsx_nhieu_sheet({"NGÀNH": N, "VẤN ĐỀ": L}),
                                file_name=f"NHAT_QUAN_NGANH_{C.bay_gio()[:10]}.xlsx", key=f"nq_dl_{key}")
 
 
@@ -1313,7 +1417,7 @@ def tab_kiem_chung() -> None:
     v = v.assign(Mức=v["Mức"].map(MUC_ICON).fillna(v["Mức"]))
     st.dataframe(v.head(3000), hide_index=True, height=min(480, 60 + 35 * min(len(v), 12)),
                  column_config={"Nguồn / ghi chú": st.column_config.TextColumn(width="large")})
-    st.download_button("📊 Tải báo cáo kiểm chứng (.xlsx)", C.xlsx_nhieu_sheet({"KIỂM CHỨNG": L}),
+    nut_tai("📊 Tải báo cáo kiểm chứng (.xlsx)", lambda: C.xlsx_nhieu_sheet({"KIỂM CHỨNG": L}),
                        file_name=f"KIEM_CHUNG_SKU_{C.bay_gio()[:10]}.xlsx", key="kc_dl")
 
 
@@ -1642,22 +1746,26 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
         xn = st.checkbox("Tôi đã xem lỗi ở trên và vẫn xuất file", value=False, key=f"{key}_xn")
     if st.button("📤 Tạo file import", type="primary", disabled=not xn or not chon, key=f"{key}_tao"):
         with st.spinner("Đang tạo file…"):
-            x = C.xuat_file_import(ss.bang, ss["import"], ss.sua, ss.dv, ss.rong, bo_cot_sku=not giu_sku,
-                                   chi_cate=chon, bo_dong_trong=bo_trong, bo_o=o_ten_bi_chan())
-        ss.xuat = x
-        ss.lich_su.append({"Lúc": C.bay_gio(), "Người xuất": ss.user, "Workspace": ss.ws,
-                           "File": ", ".join(f[0] for f in x["files"]), "Số dòng": sum(f[2] for f in x["files"]),
-                           "Sửa tay": x.get("so_o_sua", 0), "Thêm đơn vị": x.get("so_o_dv", 0),
-                           "Biến đổi": x.get("so_o_bd", 0), "Không/Đang cập nhật": x.get("so_o_rong", 0),
-                           "Tách xin data": x.get("bo_trong", 0), "Chặn ô theo tên": x.get("bo_o_ten", 0), "Cảnh báo": " | ".join(canh or [])})
-        luu(["lich_su"], f"Xuất {len(x['files'])} file import")
-        # AI tự học: dùng chính lô vừa xuất (coi như đã được xác nhận) làm mẫu cho lần sau
-        if HIEN_AI:
-            try:
-                cap_nhat_ai_hoc_tu_bang(chi_cate=list(chon))
-            except Exception:  # noqa: BLE001
-                pass
-        ss.xuat_ver = ss.get("ver", 0)
+            _uoc_x = int(150 + sum(len(b_.get("rows", [])) * len(b_.get("attr", [])) for b_ in ss.bang.values()) * 0.0004)
+            with viec_nang("Tạo file import", _uoc_x) as _ok_x:
+                x = (C.xuat_file_import(ss.bang, ss["import"], ss.sua, ss.dv, ss.rong, bo_cot_sku=not giu_sku,
+                                        chi_cate=chon, bo_dong_trong=bo_trong, bo_o=o_ten_bi_chan())
+                     if _ok_x else None)
+        if x is not None:
+            ss.xuat = x
+            ss.lich_su.append({"Lúc": C.bay_gio(), "Người xuất": ss.user, "Workspace": ss.ws,
+                               "File": ", ".join(f[0] for f in x["files"]), "Số dòng": sum(f[2] for f in x["files"]),
+                               "Sửa tay": x.get("so_o_sua", 0), "Thêm đơn vị": x.get("so_o_dv", 0),
+                               "Biến đổi": x.get("so_o_bd", 0), "Không/Đang cập nhật": x.get("so_o_rong", 0),
+                               "Tách xin data": x.get("bo_trong", 0), "Chặn ô theo tên": x.get("bo_o_ten", 0), "Cảnh báo": " | ".join(canh or [])})
+            luu(["lich_su"], f"Xuất {len(x['files'])} file import")
+            # AI tự học: dùng chính lô vừa xuất (coi như đã được xác nhận) làm mẫu cho lần sau
+            if HIEN_AI:
+                try:
+                    cap_nhat_ai_hoc_tu_bang(chi_cate=list(chon))
+                except Exception:  # noqa: BLE001
+                    pass
+            ss.xuat_ver = ss.get("ver", 0)
     x = ss.get("xuat")
     if x and ss.get("xuat_ver") != ss.get("ver", 0):
         st.warning("Dữ liệu đã thay đổi sau lần tạo file trước — bấm **📤 Tạo file import** lại để có file mới nhất.")
@@ -2527,6 +2635,12 @@ def canh_bao_o_ten(khung=st) -> None:
 
 
 def chay_map_ui() -> None:
+    with viec_nang("Map dữ liệu", uoc_mb_map()) as _ok:
+        if _ok:
+            _chay_map_ui_thuc()
+
+
+def _chay_map_ui_thuc() -> None:
     ss.pop("xuat", None); ss.pop("ws_mau", None)  # map lại → bỏ file xuất cũ, tránh tải nhầm bản trước
     thieu_import = not len(ss.get("import", []))
     thieu_dsp = not len(ss.get("data_sp", []))
@@ -3356,7 +3470,8 @@ def tab_doi_soat() -> None:
     for col, muc in zip(c, [C.MUC_CAO, C.MUC_TB, C.MUC_THAP]):
         x = L[L["Mức"] == muc] if len(L) else L
         col.metric(f"Mức {muc}", f"{len(x)} nhóm · {int(x['Số SKU'].sum()) if len(x) else 0:,} SKU-ô")
-    c[3].download_button("📊 Tải báo cáo đối soát", C.xlsx_nhieu_sheet(
+    with c[3]:
+        nut_tai("📊 Tải báo cáo đối soát", lambda: C.xlsx_nhieu_sheet(
         {"LỖI": L.drop(columns=[x for x in L.columns if x.startswith("_")]) if len(L) else L, "ĐỘ PHỦ CỘT": P}),
         file_name=f"DOI_SOAT_{C.bay_gio()[:10]}.xlsx")
     sub = st.radio("Xem", ["❗ Danh sách lỗi", "🔁 Quy đổi FILTER (giá trị CMS → option)", "📊 Độ phủ từng cột"],
@@ -4341,11 +4456,12 @@ def khu_xuat(k: dict) -> None:
     x = ss.get("xuat")
     if x:
         L = ds()["loi"]
-        bc = C.xlsx_nhieu_sheet({"CẢNH BÁO": k["canh_bao"], "KHÁC SPEC PIM": pd.DataFrame(k["khac"]),
-                                 "ĐỘ HOÀN THIỆN": dht()["sku"], "VI PHẠM QUY TẮC": dht()["vi_pham"],
-                                 "ĐỐI SOÁT CMS": L.drop(columns=[c for c in L.columns if c.startswith("_")])
-                                 if len(L) else L})
-        st.download_button("📊 Tải báo cáo kiểm tra (.xlsx)", bc, file_name=f"KIEM_TRA_{x['stamp']}.xlsx")
+        nut_tai("📊 Tải báo cáo kiểm tra (.xlsx)",
+                lambda: C.xlsx_nhieu_sheet({"CẢNH BÁO": k["canh_bao"], "KHÁC SPEC PIM": pd.DataFrame(k["khac"]),
+                                            "ĐỘ HOÀN THIỆN": dht()["sku"], "VI PHẠM QUY TẮC": dht()["vi_pham"],
+                                            "ĐỐI SOÁT CMS": L.drop(columns=[c for c in L.columns if c.startswith("_")])
+                                            if len(L) else L}),
+                file_name=f"KIEM_TRA_{x['stamp']}.xlsx")
     st.divider()
     st.markdown("##### 📦 Tải workspace theo MẪU (mở bằng Excel / bản desktop 66.py)")
     st.caption("1 file đúng bố cục mẫu: IMPORT, DATA SP, DATA PIM, CẤU HÌNH CATEGORY, MAPPING TSKT MOI, MAPPING FILTER "
@@ -5411,5 +5527,12 @@ except Exception as _e_main:
 
 # Footer: admin thấy version, non-admin thấy branding sạch
 if ss.get("admin"):
+    try:
+        _u, _g, _c = ram_mb()
+        _dp = _dieu_phoi()
+        _sk = f" · RAM {_u:,}/{_g:,} MB" if _g else f" · RAM còn {_c:,} MB"
+        _sk += f" · việc nặng {len(_dp['dang'])}/{_dp['toi_da']}"
+    except Exception:  # noqa: BLE001
+        _sk = ""
     st.caption(f"<div style='text-align:center;margin-top:2rem;color:#94a3b8;font-size:.78rem'>"
-               f"PIM Tool {APP_VERSION}</div>", unsafe_allow_html=True)
+               f"PIM Tool {APP_VERSION}{_sk}</div>", unsafe_allow_html=True)
