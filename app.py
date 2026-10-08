@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-3.7 · 2026-10-07"
+APP_VERSION = "web-3.8 · 2026-10-08"
 ss = st.session_state
 
 
@@ -1987,6 +1987,8 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                 cid = cols[0].text_input("Mã ngành", value=cate_gy, key=f"{key}_cfg_cid_{i}",
                                          help="Số CATEGORYID của ngành (vd: 1988, 9218)")
                 cu_ten = (ss.cau_hinh.get(C.chuan_hoa_id(cid), {}) or {}).get("ten", "") if cid else ""
+                if not cu_ten:
+                    cu_ten = os.path.splitext(ten_file)[0]  # gợi ý tên ngành từ tên file
                 cten = cols[1].text_input("Tên ngành", value=cu_ten, key=f"{key}_cfg_cten_{i}",
                                           placeholder="vd: Xe đạp tập thể dục")
                 ok = cols[2].checkbox("Áp dụng", value=bool(cid), key=f"{key}_cfg_ok_{i}",
