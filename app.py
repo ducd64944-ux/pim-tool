@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.1 · 2026-10-08"
+APP_VERSION = "web-4.2 · 2026-10-08"
 ss = st.session_state
 
 
@@ -3960,6 +3960,36 @@ def _khu_bien_doi_noi_dung() -> None:
     he_so = c[4].text_input("Hệ số", key="bd_hs", disabled=kieu != "doi_dv",
                             help="Để trống nếu là cặp quen thuộc (mm↔cm↔m, g↔kg, inch→cm, ml↔lít, W↔kW, mAh↔Ah, phút↔giờ)")
     buoc = {"kieu": kieu, "pham_vi": pv, "a": a, "b": b, "he_so": he_so}
+    if chon and st.checkbox("🔎 Lọc xem giá trị trong cột đã chọn (ô nào có số / đơn vị, ô nào là chữ)", key="bd_loc_xem"):
+        # CHỈ ĐỌC: giá trị hiện tại (sau sửa tay/đơn vị ①, chưa biến đổi hàng loạt) gom theo giá trị
+        dv_goc_x = {k_: v_ for k_, v_ in ss.dv.items()
+                    if not (len(k_) == 3 and k_[2] == "bd" and any(k_[1] == m_ and k_[0] in (c_, "*") for c_, m_ in chon))}
+        dem: dict = {}
+        for cc, m in chon:
+            for r in ss.bang[cc]["rows"]:
+                v0, _ = C.bien_doi_o(cc, r["sku"], m, r["vals"].get(m, ""), ss.sua, dv_goc_x, ss.rong)
+                if v0:
+                    dem[(m, v0)] = dem.get((m, v0), 0) + 1
+
+        def _tt(v: str) -> str:
+            if pv == "so":
+                ok_ = C.la_so_tron(v)
+            elif pv == "tung_phan":
+                ok_ = any(C.la_so_tron(x.strip()) for x in v.split(C.SEP_TSKT))
+            else:
+                ok_ = bool(re.search(r"\d", v))
+            return "✅ có số → được thêm" if ok_ else "⛔ chữ → bỏ qua"
+        bang_x = pd.DataFrame([{"Cột": m, "Giá trị": v, "Số ô": n, "Với phạm vi đang chọn": _tt(v)}
+                               for (m, v), n in dem.items()])
+        if len(bang_x):
+            loc_tt = st.radio("Hiện", ["Tất cả", "✅ Được thêm", "⛔ Bỏ qua"], horizontal=True, key="bd_loc_tt")
+            if loc_tt != "Tất cả":
+                bang_x = bang_x[bang_x["Với phạm vi đang chọn"].str.startswith(loc_tt[0])]
+            bang_x = bang_x.sort_values(["Cột", "Số ô"], ascending=[True, False]).reset_index(drop=True)
+            st.caption(f"{len(bang_x):,} giá trị khác nhau")
+            st.dataframe(bang_x, hide_index=True, height=min(320, 40 + 35 * min(len(bang_x), 8)), width="stretch")
+        else:
+            st.caption("(Cột đã chọn chưa có giá trị.)")
     if chon and (a or b or kieu == "thay"):
         # xem trước tính từ giá trị CHƯA biến đổi hàng loạt của các cột đang chọn (để thấy đúng tác động của bước này)
         dv_goc = {k_: v_ for k_, v_ in ss.dv.items()

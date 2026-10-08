@@ -186,11 +186,12 @@ BD_KIEU = {"them_sau": "Thêm vào SAU (đơn vị / chữ)", "them_truoc": "Th�
            "ca_hai": "Thêm cả TRƯỚC và SAU",
            "doi_dv": "Đổi đơn vị (quy đổi số: mm→cm…)", "thay": "Thay chữ A → B", "lam_tron": "Làm tròn số (A = số lẻ)"}
 BD_PHAM_VI = {"so": "Chỉ ô SỐ TRƠN (đúng rule cũ: 9 → 9 kg)", "tung_phan": "Từng giá trị số trong ô (9|10 → 9 kg|10 kg)",
-              "tat_ca": "Mọi ô là SỐ / dãy số (bỏ qua ô chữ: Không / Đang cập nhật / Hãng không công bố)"}
+              "tat_ca": "Mọi ô có SỐ hoặc chữ+số (bỏ qua ô chữ thuần: Không / Đang cập nhật / Hãng không công bố)"}
 HE_SO_DV = {("mm", "cm"): 0.1, ("cm", "mm"): 10, ("m", "cm"): 100, ("cm", "m"): 0.01, ("mm", "m"): 0.001,
             ("m", "mm"): 1000, ("g", "kg"): 0.001, ("kg", "g"): 1000, ("inch", "cm"): 2.54, ("cm", "inch"): 1 / 2.54,
             ("ml", "lít"): 0.001, ("lít", "ml"): 1000, ("w", "kw"): 0.001, ("kw", "w"): 1000,
             ("mah", "ah"): 0.001, ("ah", "mah"): 1000, ("phút", "giờ"): 1 / 60, ("giờ", "phút"): 60}
+_CO_SO_RE = re.compile(r"\d")
 _SO_PHAN_RE = re.compile(r"^(-?\d+(?:[.,]\d+)?)\s*([^\d\s].*)?$")
 
 
@@ -224,9 +225,9 @@ def ap_buoc(v: str, b: dict) -> str:
         if kieu in ("them_sau", "them_truoc", "ca_hai"):
             if pv in ("so", "tung_phan") and not so:
                 return p
-            # Phạm vi "mọi ô": vẫn CHỈ thêm khi ô là SỐ hoặc DÃY SỐ (9 | 9|10 | 12,5). Ô chữ (Không / Đang cập nhật /
-            # Hãng không công bố / "Không có 2 cổng"…) và ô trống giữ nguyên, không gắn đơn vị/chữ vào.
-            if pv == "tat_ca" and not all(la_so_tron(x) for x in p2.split(SEP_TSKT)):
+            # Phạm vi "mọi ô": CHỈ thêm khi ô CÓ CHỨA SỐ (9 | 9|10 | 12,5 | "Driver 40mm"). Ô chữ thuần (Không /
+            # Đang cập nhật / Hãng không công bố…) và ô trống giữ nguyên, không gắn đơn vị/chữ vào.
+            if pv == "tat_ca" and not _CO_SO_RE.search(p2):
                 return p
             if kieu == "ca_hai":  # a = chữ phía trước, b = chữ phía sau
                 return _noi(_noi(p2, bb, False), a, True)
