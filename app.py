@@ -144,7 +144,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.6 · 2026-10-08"
+APP_VERSION = "web-4.7 · 2026-10-08"
 ss = st.session_state
 
 
@@ -2007,7 +2007,32 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                           accept_multiple_files=True, key=f"{key}_f{lan}")
     txt = st.text_area("Hoặc dán bảng từ Excel (model / SKU / biến thể…, có hoặc không có dòng tiêu đề)",
                        height=90, key=f"{key}_t{lan}", placeholder="219463\t\t4844439000045\n219464\tV2\t4844439000046")
-    sig = tuple((f.name, f.size) for f in fs or []) + ((hash(txt),) if txt.strip() else ())
+    # ---- TỰ ĐIỀN TAY model / SKU / mã biến thể (không cần file) ----
+    tay_txt = ""
+    if st.checkbox("✍️ Tự điền tay model / SKU / mã biến thể (không cần file)", key=f"{key}_tay_on{lan}",
+                   help="Gõ thẳng vào bảng, thêm dòng ở cuối bảng. Dán nhiều dòng từ Excel vào bảng cũng được. "
+                        "Chỉ cần cột SKU; model / biến thể / ngành để trống được."):
+        _ct = st.columns([3, 1.4])
+        with _ct[1]:
+            cate_mac = st.text_input("Mã ngành mặc định", key=f"{key}_tay_cate{lan}", placeholder="vd: 2062",
+                                     help="Áp cho các dòng để trống cột category_code (tuỳ chọn).")
+        _cau = {c_: st.column_config.TextColumn(c_) for c_ in ("model_code", "sku", "variant_code", "category_code")}
+        _cau["sku"] = st.column_config.TextColumn("sku (bắt buộc)")
+        _tay = st.data_editor(pd.DataFrame([["", "", "", ""]] * 4, columns=["model_code", "sku", "variant_code", "category_code"]),
+                              num_rows="dynamic", hide_index=True, width="stretch", column_config=_cau,
+                              key=f"{key}_tay{lan}")
+        _dong = []
+        for _r in _tay.fillna("").astype(str).itertuples(index=False):
+            if _r.sku.strip():
+                _dong.append("\t".join([_r.model_code.strip(), _r.sku.strip(), _r.variant_code.strip(),
+                                        (_r.category_code.strip() or cate_mac.strip())]))
+        if _dong:
+            tay_txt = "model_code\tsku\tvariant_code\tcategory_code\n" + "\n".join(_dong)
+            st.caption(f"✍️ Đang có {len(_dong):,} dòng điền tay — bấm **Nạp vào tool** ở dưới để đưa vào IMPORT.")
+        else:
+            st.caption("Điền ít nhất cột **sku** ở 1 dòng thì mới nạp được.")
+    sig = (tuple((f.name, f.size) for f in fs or []) + ((hash(txt),) if txt.strip() else ())
+           + ((hash(tay_txt),) if tay_txt else ()))
     if not sig:
         return
     if ss.get(f"{key}_sig") != sig:
@@ -2021,6 +2046,10 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             if txt.strip():
                 r = C.doc_mot_cuc(C.doc_text_dan(txt))
                 kq.append(("(bảng dán)", {"loai": "sku" if len(r["import"]) else None, **r,
+                                          "loi": None if len(r["import"]) else " ".join(r["ghi_chu"])}))
+            if tay_txt:
+                r = C.doc_mot_cuc(C.doc_text_dan(tay_txt))
+                kq.append(("(điền tay)", {"loai": "sku" if len(r["import"]) else None, **r,
                                           "loi": None if len(r["import"]) else " ".join(r["ghi_chu"])}))
         ss[f"{key}_sig"], ss[f"{key}_kq"], ss[f"{key}_giay"] = sig, kq, time.time() - t
     kq = ss[f"{key}_kq"]
