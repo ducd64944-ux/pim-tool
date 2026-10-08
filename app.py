@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.2 · 2026-10-08"
+APP_VERSION = "web-4.3 · 2026-10-08"
 ss = st.session_state
 
 
@@ -3894,7 +3894,7 @@ def tab_don_vi(k: dict) -> None:
             luu(["settings"], "Áp đơn vị hàng loạt")
             st.rerun()
     st.divider()
-    khu_bien_doi()
+    khu_bien_doi(k)
 
 
 def _mo_ta_buoc(x: dict) -> str:
@@ -3902,22 +3902,50 @@ def _mo_ta_buoc(x: dict) -> str:
     return f"{C.BD_KIEU.get(x.get('kieu'), x.get('kieu', ''))} [{a}{(' → ' + b) if b else ''}]"
 
 
-def khu_bien_doi() -> None:
-    """Vùng nâng cao — mặc định THU GỌN (không mất, bấm mở khi cần)."""
-    n = len([1 for k, v in ss.dv.items() if len(k) == 3 and v])
-    with st.expander(f"② Biến đổi hàng loạt — nâng cao{f' · đang áp {n} cột' if n else ''} (bấm để mở)", expanded=False):
-        _khu_bien_doi_noi_dung()
+def _bd_mo_bat() -> None:
+    """Đã thao tác trong vùng ② -> giữ vùng này MỞ sau mỗi lần chạy lại (không tự gập/nhảy)."""
+    ss._bd_mo = True
 
 
-def _khu_bien_doi_noi_dung() -> None:
+def _bd_rerun() -> None:
+    ss._bd_mo = True
+    st.rerun()
+
+
+def khu_bien_doi(k: dict | None = None) -> None:
+    """Vùng nâng cao — mặc định THU GỌN (không mất, bấm mở khi cần); đã thao tác thì giữ mở."""
+    n = len([1 for k_, v in ss.dv.items() if len(k_) == 3 and v])
+    with st.expander(f"② Biến đổi hàng loạt — nâng cao{f' · đang áp {n} cột' if n else ''} (bấm để mở)",
+                     expanded=bool(ss.get("_bd_mo", False))):
+        _khu_bien_doi_noi_dung(k)
+
+
+def _khu_bien_doi_noi_dung(k: dict | None = None) -> None:
     st.caption("Áp sau đơn vị ở ①, trước khi xuất. Không bao giờ áp vào cột FILTER. Ô sửa tay và quy tắc "
                "Không/Đang cập nhật được ưu tiên hơn. **Chọn lại cột đã áp → form tự hiện đúng giá trị đã đặt để sửa.**")
     if bang_trong():
         return
-    cot = sorted({(c, m) for c, b in ss.bang.items() for m in C.cot_tt(b) if not C.la_cot_filter(m)})
-    ten = {(c, m): ss.bang[c]["ten"].get(m, "") for c, m in cot}
+    cot_het = sorted({(c, m) for c, b in ss.bang.items() for m in C.cot_tt(b) if not C.la_cot_filter(m)})
+    ten = {(c, m): ss.bang[c]["ten"].get(m, "") for c, m in cot_het}
+    # Cột "cần thay thế" (hiện mặc định): cột kích thước/khối lượng, cột còn ô số trơn chưa có đơn vị,
+    # và cột ĐÃ có biến đổi. Muốn thấy hết mọi cột -> tick «Hiện tất cả cột».
+    can = {(r["cate"], r["code"]) for r in (k or {}).get("don_vi_cot", []) if r.get("la_kt") or r.get("so_tron")}
+    can |= {(c, m) for c, m in cot_het if ss.dv.get((c, m, "bd")) or ss.dv.get(("*", m, "bd"))}
     c1, c2 = st.columns([3, 2])
-    chon = c1.multiselect("Cột áp dụng", cot, key="bd_cot",
+    tat_ca_cot = c2.checkbox("Hiện tất cả cột", key="bd_tat_ca_cot", on_change=_bd_mo_bat,
+                             help="Bỏ tick: chỉ hiện cột cần thay thế (kích thước/khối lượng, còn ô số trơn, đã có biến đổi)")
+    if tat_ca_cot or not can:
+        cot = cot_het
+    else:
+        cot = [x for x in cot_het if x in can]
+    # luôn giữ các cột ĐANG CHỌN trong danh sách (tránh bị mất lựa chọn khi đổi bộ lọc)
+    for x in ss.get("bd_cot") or []:
+        if x in cot_het and x not in cot:
+            cot.append(x)
+    cot = sorted(cot)
+    if not tat_ca_cot and can:
+        c1.caption(f"Đang hiện {len(cot)}/{len(cot_het)} cột cần thay thế — tick «Hiện tất cả cột» để xem hết.")
+    chon = c1.multiselect("Cột áp dụng", cot, key="bd_cot", on_change=_bd_mo_bat,
                           format_func=lambda x: f"{x[0]} · {x[1]} — {ten.get(x, '')}")
     # --- cột đã có biến đổi? -> nạp lại đúng giá trị vào form (như lúc chưa áp hàng loạt) ---
     hien_co, buoc_sua = [], None
@@ -3928,7 +3956,7 @@ def _khu_bien_doi_noi_dung() -> None:
         hien_co = list(ss.dv.get(kk_co) or []) if kk_co else []
         if hien_co:
             nhan_b = [f"Bước {n}: {_mo_ta_buoc(x)}" for n, x in enumerate(hien_co, 1)] + ["➕ Thêm 1 bước mới"]
-            ch = st.selectbox("Biến đổi đang áp cho cột này", nhan_b, key=f"bd_buoc_{cc0}_{m0}_{ss.ver}")
+            ch = st.selectbox("Biến đổi đang áp cho cột này", nhan_b, key=f"bd_buoc_{cc0}_{m0}_{ss.ver}", on_change=_bd_mo_bat)
             n_ch = nhan_b.index(ch)
             buoc_sua = n_ch if n_ch < len(hien_co) else None
         ctx = (cc0, m0, buoc_sua, len(hien_co))
@@ -3944,23 +3972,23 @@ def _khu_bien_doi_noi_dung() -> None:
         elif ctx is not None and not hien_co:
             for k_ in ("bd_a", "bd_b", "bd_hs"):
                 ss[k_] = ""
-    moi_nganh = c2.checkbox("Áp cho mã cột này ở MỌI ngành", key="bd_moi_nganh",
+    moi_nganh = c2.checkbox("Áp cho mã cột này ở MỌI ngành", key="bd_moi_nganh", on_change=_bd_mo_bat,
                             help="Lưu theo mã cột (*) thay vì từng ngành — tiện cho cột dùng chung như mass_tskt_master")
     c = st.columns([2, 2, 1.2, 1.2, 1])
-    kieu = c[0].selectbox("Kiểu", list(C.BD_KIEU), format_func=C.BD_KIEU.get, key="bd_kieu")
-    pv = c[1].selectbox("Phạm vi", list(C.BD_PHAM_VI), format_func=C.BD_PHAM_VI.get, key="bd_pv",
+    kieu = c[0].selectbox("Kiểu", list(C.BD_KIEU), format_func=C.BD_KIEU.get, key="bd_kieu", on_change=_bd_mo_bat)
+    pv = c[1].selectbox("Phạm vi", list(C.BD_PHAM_VI), format_func=C.BD_PHAM_VI.get, key="bd_pv", on_change=_bd_mo_bat,
                         index=2 if kieu in ("thay",) else 0)
     nhan_a = {"them_sau": "Chữ / đơn vị", "them_truoc": "Chữ", "ca_hai": "Chữ phía TRƯỚC", "doi_dv": "Từ đơn vị",
               "thay": "Tìm chữ", "lam_tron": "Số chữ số lẻ"}[kieu]
-    a = c[2].text_input(nhan_a, key="bd_a", placeholder={"them_sau": "kg", "doi_dv": "mm", "lam_tron": "1",
+    a = c[2].text_input(nhan_a, key="bd_a", on_change=_bd_mo_bat, placeholder={"them_sau": "kg", "doi_dv": "mm", "lam_tron": "1",
                                                          "ca_hai": "Khoảng"}.get(kieu, ""))
-    b = c[3].text_input({"doi_dv": "Sang đơn vị", "ca_hai": "Chữ phía SAU"}.get(kieu, "Thay bằng"), key="bd_b",
+    b = c[3].text_input({"doi_dv": "Sang đơn vị", "ca_hai": "Chữ phía SAU"}.get(kieu, "Thay bằng"), key="bd_b", on_change=_bd_mo_bat,
                         disabled=kieu not in ("doi_dv", "thay", "ca_hai"),
                         placeholder={"doi_dv": "cm", "ca_hai": "cm"}.get(kieu, ""))
-    he_so = c[4].text_input("Hệ số", key="bd_hs", disabled=kieu != "doi_dv",
+    he_so = c[4].text_input("Hệ số", key="bd_hs", on_change=_bd_mo_bat, disabled=kieu != "doi_dv",
                             help="Để trống nếu là cặp quen thuộc (mm↔cm↔m, g↔kg, inch→cm, ml↔lít, W↔kW, mAh↔Ah, phút↔giờ)")
     buoc = {"kieu": kieu, "pham_vi": pv, "a": a, "b": b, "he_so": he_so}
-    if chon and st.checkbox("🔎 Lọc xem giá trị trong cột đã chọn (ô nào có số / đơn vị, ô nào là chữ)", key="bd_loc_xem"):
+    if chon and st.checkbox("🔎 Lọc xem giá trị trong cột đã chọn (ô nào có số / đơn vị, ô nào là chữ)", key="bd_loc_xem", on_change=_bd_mo_bat):
         # CHỈ ĐỌC: giá trị hiện tại (sau sửa tay/đơn vị ①, chưa biến đổi hàng loạt) gom theo giá trị
         dv_goc_x = {k_: v_ for k_, v_ in ss.dv.items()
                     if not (len(k_) == 3 and k_[2] == "bd" and any(k_[1] == m_ and k_[0] in (c_, "*") for c_, m_ in chon))}
@@ -3982,7 +4010,7 @@ def _khu_bien_doi_noi_dung() -> None:
         bang_x = pd.DataFrame([{"Cột": m, "Giá trị": v, "Số ô": n, "Với phạm vi đang chọn": _tt(v)}
                                for (m, v), n in dem.items()])
         if len(bang_x):
-            loc_tt = st.radio("Hiện", ["Tất cả", "✅ Được thêm", "⛔ Bỏ qua"], horizontal=True, key="bd_loc_tt")
+            loc_tt = st.radio("Hiện", ["Tất cả", "✅ Được thêm", "⛔ Bỏ qua"], horizontal=True, key="bd_loc_tt", on_change=_bd_mo_bat)
             if loc_tt != "Tất cả":
                 bang_x = bang_x[bang_x["Với phạm vi đang chọn"].str.startswith(loc_tt[0])]
             bang_x = bang_x.sort_values(["Cột", "Số ô"], ascending=[True, False]).reset_index(drop=True)
@@ -4015,7 +4043,7 @@ def _khu_bien_doi_noi_dung() -> None:
                 ss._bd_ctx = None
                 bump()
                 luu(["settings"], f"Sửa biến đổi hàng loạt cột {chon[0][1]}")
-                st.rerun()
+                _bd_rerun()
             if bt[1].button("🗑 Bỏ bước này", key="bd_bo_buoc"):
                 ds_ = [x for n, x in enumerate(hien_co) if n != buoc_sua]
                 ss.dv.pop(kk_co, None)
@@ -4024,14 +4052,14 @@ def _khu_bien_doi_noi_dung() -> None:
                 ss._bd_ctx = None
                 bump()
                 luu(["settings"], f"Bỏ biến đổi hàng loạt cột {chon[0][1]}")
-                st.rerun()
+                _bd_rerun()
         elif bt[0].button(f"▶ Áp cho {len(chon)} cột", type="primary", disabled=not mau):
             for cc, m in chon:
                 kk = ("*" if moi_nganh else cc, m, "bd")
                 ss.dv[kk] = list(ss.dv.get(kk) or []) + [buoc]
             bump()
             luu(["settings"], f"Biến đổi hàng loạt {len(chon)} cột: {C.BD_KIEU[kieu]}")
-            st.rerun()
+            _bd_rerun()
     elif buoc_sua is not None:
         if st.button("🗑 Bỏ bước này", key="bd_bo_buoc2"):
             ds_ = [x for n, x in enumerate(hien_co) if n != buoc_sua]
@@ -4041,7 +4069,7 @@ def _khu_bien_doi_noi_dung() -> None:
             ss._bd_ctx = None
             bump()
             luu(["settings"], f"Bỏ biến đổi hàng loạt cột {chon[0][1]}")
-            st.rerun()
+            _bd_rerun()
     dang = [(k, v) for k, v in ss.dv.items() if len(k) == 3 and v]
     if dang:
         st.markdown("**Cột đang có biến đổi** (chọn cột ở ô «Cột áp dụng» để xem & sửa):")
