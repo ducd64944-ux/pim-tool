@@ -9,7 +9,7 @@
    - **File mẫu ngành** → Cấu hình ngành
    - **Danh sách SKU / file PIM** → IMPORT
    - **Workspace theo mẫu** → lấy nhiều loại cùng lúc
-4. Không có file? Dán bảng từ Excel, hoặc tick **✍️ Tự điền tay model / SKU / mã biến thể** rồi gõ thẳng vào bảng (chỉ cần cột `sku`; có thể đặt *Mã ngành mặc định*) → bấm **Nạp vào tool**
+4. Không có file? Dán bảng từ Excel, hoặc tick **✍️ Tự điền tay model / SKU / mã biến thể** rồi **dán theo cột**: copy cột Model / SKU / Mã biến thể từ Excel dán vào 3 ô (mỗi dòng 1 giá trị, thứ tự dòng khớp nhau; Model chỉ 1 giá trị thì áp cho tất cả SKU). Chỉ cần SKU; có thể đặt *Mã ngành mặc định*. Muốn gõ tay từng dòng thì chọn **Bảng gõ tay** → bấm **Nạp vào tool**
 
 > **Lưu ý:** Phải có cả IMPORT và DATA SP mới chuyển sang bước ② được.
 
