@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.0 · 2026-10-08"
+APP_VERSION = "web-4.1 · 2026-10-08"
 ss = st.session_state
 
 
