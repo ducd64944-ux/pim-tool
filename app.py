@@ -144,7 +144,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.7 · 2026-10-08"
+APP_VERSION = "web-4.8 · 2026-10-08"
 ss = st.session_state
 
 
@@ -4485,11 +4485,13 @@ def khu_xuat(k: dict) -> None:
     x = ss.get("xuat")
     if x:
         L = ds()["loi"]
-        nut_tai("📊 Tải báo cáo kiểm tra (.xlsx)",
-                lambda: C.xlsx_nhieu_sheet({"CẢNH BÁO": k["canh_bao"], "KHÁC SPEC PIM": pd.DataFrame(k["khac"]),
-                                            "ĐỘ HOÀN THIỆN": dht()["sku"], "VI PHẠM QUY TẮC": dht()["vi_pham"],
-                                            "ĐỐI SOÁT CMS": L.drop(columns=[c for c in L.columns if c.startswith("_")])
-                                            if len(L) else L}),
+        # Lấy sẵn các bảng (đã có cache) TRƯỚC khi tạo nút: hàm dựng file chạy lúc bấm, NGOÀI luồng của trang nên
+        # không được đụng session_state (trước đây gọi dht() trong lambda -> "Failed to generate file for download").
+        _dht = dht()
+        _sheets = {"CẢNH BÁO": k["canh_bao"], "KHÁC SPEC PIM": pd.DataFrame(k["khac"]),
+                   "ĐỘ HOÀN THIỆN": _dht["sku"], "VI PHẠM QUY TẮC": _dht["vi_pham"],
+                   "ĐỐI SOÁT CMS": L.drop(columns=[c for c in L.columns if c.startswith("_")]) if len(L) else L}
+        nut_tai("📊 Tải báo cáo kiểm tra (.xlsx)", lambda: C.xlsx_nhieu_sheet(_sheets),
                 file_name=f"KIEM_TRA_{x['stamp']}.xlsx")
     st.divider()
     st.markdown("##### 📦 Tải workspace theo MẪU (mở bằng Excel / bản desktop 66.py)")
