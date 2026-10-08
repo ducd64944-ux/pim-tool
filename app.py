@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.3 · 2026-10-08"
+APP_VERSION = "web-4.4 · 2026-10-08"
 ss = st.session_state
 
 
@@ -2632,6 +2632,18 @@ def _bang_sua_tay() -> None:
         st.rerun()
 
 
+def _tab_an_toan(ten: str, ham, *a) -> None:
+    """Chạy 1 tab; lỗi ở tab này CHỈ hiện trong tab đó (kèm 1 dòng chi tiết để báo), không làm sập cả trang
+    và không chặn các tab/khu phía sau. st.rerun/st.stop (BaseException) vẫn chạy bình thường."""
+    try:
+        ham(*a)
+    except Exception as e:  # noqa: BLE001
+        _ghi_loi(e, f"Tab {ten}")
+        st.error(f"Tab «{ten}» gặp lỗi: {type(e).__name__}: {str(e)[:300]}")
+        if ss.get("admin"):
+            st.code("".join(traceback.format_exception(e))[-1500:], language="python")
+
+
 def trang_map() -> None:
     st.title("🔍 Kiểm tra & Đối chiếu")
     if ss.get("map_flash"):
@@ -2711,32 +2723,32 @@ def trang_map() -> None:
         _tabs.insert(6, None)
     (t_qc, t_kc, t_nq, t_cb, t_ht, t_ds, t_ai, t_khac, t_sku, t_dv, t_rong, t_kt, t_cm, t_log) = _tabs
     with t_qc:
-        tab_qc(k)
+        _tab_an_toan('QC tổng hợp', tab_qc, k)
     with t_kc:
-        tab_kiem_chung()
+        _tab_an_toan('Kiểm chứng SKU ↔ DATA SP', tab_kiem_chung)
     with t_nq:
-        tab_nhat_quan()
+        _tab_an_toan('Nhất quán ngành', tab_nhat_quan)
     with t_cb:
-        tab_canh_bao(k)
+        _tab_an_toan('Cảnh báo', tab_canh_bao, k)
     with t_ht:
-        tab_hoan_thien()
+        _tab_an_toan('Độ hoàn thiện & quy tắc', tab_hoan_thien)
     with t_ds:
-        tab_doi_soat()
+        _tab_an_toan('Đối soát CMS → kết quả', tab_doi_soat)
     if t_ai is not None:
         with t_ai:
             tab_ai(k)
     with t_khac:
-        tab_khac(k)
+        _tab_an_toan('Khác spec PIM (sửa)', tab_khac, k)
     with t_sku:
-        tab_sku(k)
+        _tab_an_toan('Theo SKU + FILTER', tab_sku, k)
     with t_dv:
-        tab_don_vi(k)
+        _tab_an_toan('Đơn vị & biến đổi hàng loạt', tab_don_vi, k)
     with t_rong:
-        tab_rong(k)
+        _tab_an_toan('Không / Đang cập nhật', tab_rong, k)
     with t_kt:
-        tab_tach_kt()
+        _tab_an_toan('Gộp / tách kích thước', tab_tach_kt)
     with t_cm:
-        tab_chua_map()
+        _tab_an_toan('Thuộc tính chưa map', tab_chua_map)
     with t_log:
         lg = pd.DataFrame(ss.meta.get("log", []), columns=["SKU", "Ngành hàng", "Mã", "Nguyên nhân"])
         st.dataframe(lg, hide_index=True, height=420)
