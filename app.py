@@ -683,6 +683,12 @@ def duoc_sua_chung() -> bool:
     return bool(ss.get("admin")) or str(sec("SHARED_EDIT", "admin")).lower() == "all"
 
 
+def duoc_nap_nganh() -> bool:
+    """Ai cũng được NẠP/THÊM cấu hình ngành (file mẫu ngành / file SKU). Mọi lần nạp ghi vào lịch sử (commit
+    '[người dùng] ...'); admin xem lại + xoá/khôi phục ở Cấu hình → Cấu hình ngành hàng. Muốn siết lại: sửa 1 chỗ này."""
+    return True
+
+
 def bump() -> None:
     ss.ver = ss.get("ver", 0) + 1
 
@@ -1959,10 +1965,8 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                 st.markdown(f"🏷️ **{v['ten']} ({c})** · {len(v['cot'])} cột — thêm {len(them)} · bỏ {len(bo)}")
             else:
                 st.markdown(f"🏷️ **{v['ten']} ({c})** · ngành mới · {len(v['cot'])} cột")
-        lay_ng = st.checkbox("Cập nhật Cấu hình ngành hàng từ file mẫu ngành (dùng chung)", value=duoc_sua_chung(),
-                             disabled=not duoc_sua_chung(), key=f"{key}_ng")
-        if not duoc_sua_chung():
-            st.caption("Chỉ admin cập nhật cấu hình dùng chung.")
+        lay_ng = st.checkbox("Cập nhật Cấu hình ngành hàng từ file mẫu ngành (dùng chung)", value=duoc_nap_nganh(),
+                             disabled=not duoc_nap_nganh(), key=f"{key}_ng")
     # ---- GỢI Ý cấu hình ngành từ file SKU (file export PIM có cột TSKT) ----
     ds_gy_cfg = []  # [(ten_file, cate_id_gy, [(ma,tv),...])]
     for ten_file, r in kq:
@@ -1981,8 +1985,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             st.markdown(f"**➕ Thêm cấu hình ngành từ file SKU** "
                         f"({sum(len(c) for _, _, c in ds_gy_cfg):,} cột gợi ý)")
             st.caption("Xác nhận mã + tên ngành. Ngành đã có chỉ bổ sung cột thiếu. Không muốn thêm thì bỏ tick «Áp dụng».")
-            if not duoc_sua_chung():
-                st.caption("Tài khoản của bạn không phải admin: ngành thêm ở đây chỉ dùng cho phiên làm việc này (chưa lưu chung).")
+            st.caption("Lưu vào Cấu hình ngành dùng chung; admin xem lại lịch sử và xoá được.")
             for i, (ten_file, cate_gy, cot_gy) in enumerate(ds_gy_cfg):
                 st.markdown(f"**📄 {ten_file}** — {len(cot_gy)} cột thuộc tính")
                 cols = st.columns([1.2, 2.5, 1])
@@ -1993,8 +1996,10 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                     cu_ten = os.path.splitext(ten_file)[0]  # gợi ý tên ngành từ tên file
                 cten = cols[1].text_input("Tên ngành", value=cu_ten, key=f"{key}_cfg_cten_{i}",
                                           placeholder="vd: Xe đạp tập thể dục")
-                ok = cols[2].checkbox("Áp dụng", value=bool(cid), key=f"{key}_cfg_ok_{i}",
+                ok = cols[2].checkbox("Áp dụng", value=bool(cid), key=f"{key}_cfg_ok_{i}_{cid}",
                                       disabled=not cid)
+                if not cid:
+                    st.caption("⚠️ File chưa có category_code → nhập Mã ngành (số CATEGORYID) để nạp.")
                 xem = st.checkbox(f"Xem {len(cot_gy)} cột sẽ thêm", key=f"{key}_cfg_xem_{i}")
                 if xem:
                     st.dataframe(pd.DataFrame(cot_gy, columns=["Mã cột", "Tên tiếng Việt"]),
@@ -2003,7 +2008,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                     cat_them.append((C.chuan_hoa_id(cid), (cten or "").strip(), cot_gy))
     # ---- QC ngầm cho ngành SẮP thêm/cập nhật: kiểm trước khi bấm Nạp (chỉ đọc, chưa lưu gì)
     _moi: dict = {}
-    if ds_ng and duoc_sua_chung():
+    if ds_ng and duoc_nap_nganh():
         for c_, v_ in moi_ng.items():
             _moi[c_] = ("thay", v_)
     for cid_, cten_, cot_gy_ in cat_them:
@@ -2036,24 +2041,23 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         return
     imp, spec, sp = [], [], []
     da_ng = []
-    if ds_ng and lay_ng and duoc_sua_chung():
+    if ds_ng and lay_ng and duoc_nap_nganh():
         nap_shared()
         ch = dict(ss.cau_hinh)
         ch.update(moi_ng)
         ss.cau_hinh = ch
-        luu(["shared:cau_hinh"], "Nạp cấu hình ngành từ file mẫu: " + ", ".join(t for t, _ in ds_ng))
+        luu(["shared:cau_hinh"], "Nạp cấu hình ngành từ file mẫu: " + ", ".join(
+            f"{v['ten']} ({c}) {len(v['cot'])} cột" for c, v in moi_ng.items()))
         da_ng = [f"{v['ten']} ({c}) {len(v['cot'])} cột" for c, v in moi_ng.items()]
     # Áp các gợi ý "thêm cấu hình từ file SKU" (chỉ thêm cột còn thiếu, giữ cột cũ)
-    if cat_them:
-        if duoc_sua_chung():
-            nap_shared()
-        else:
-            ss.cau_hinh = {k: dict(v, cot=list(v.get('cot', [])), ten_cot=dict(v.get('ten_cot', {}))) for k, v in ss.cau_hinh.items()}
+    if cat_them and duoc_nap_nganh():
+        nap_shared()
+        log_nganh = []
         for cid, cten, cot_gy in cat_them:
+            moi_tao = cid not in ss.cau_hinh
             o = ss.cau_hinh.setdefault(cid, {"ten": "", "cot": [], "ten_cot": {}})
-            if cten and not o.get("ten"):
-                o["ten"] = cten
-            elif cten:
+            # Người thường: ngành ĐÃ có tên thì giữ tên cũ (tránh ghi đè nhầm). Admin: được đổi tên (như trước).
+            if cten and (not o.get("ten") or duoc_sua_chung()):
                 o["ten"] = cten
             them_n = 0
             for ma, tv in cot_gy:
@@ -2062,9 +2066,9 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                     them_n += 1
                 if tv and ma not in o.get("ten_cot", {}):
                     o.setdefault("ten_cot", {})[ma] = tv
-            da_ng.append(f"{(cten or o.get('ten') or cid)} ({cid}) +{them_n} cột")
-        if duoc_sua_chung():
-            luu(["shared:cau_hinh"], f"Thêm cấu hình ngành từ file SKU: {len(cat_them)} ngành")
+            da_ng.append(f"{(o.get('ten') or cten or cid)} ({cid}) +{them_n} cột")
+            log_nganh.append(f"{(o.get('ten') or cten or cid)} ({cid}) {'MỚI' if moi_tao else 'bổ sung'} +{them_n} cột")
+        luu(["shared:cau_hinh"], "Thêm cấu hình ngành từ file SKU: " + "; ".join(log_nganh))
     for ten, r in kq:
         if r.get("loai") == "mau":
             if lay_chung and duoc_sua_chung():
@@ -4433,7 +4437,46 @@ def tab_lich_su(sua_duoc: bool) -> None:
         st.rerun()
 
 
+def khu_nhat_ky_nap_nganh() -> None:
+    """ADMIN: xem ai đã nạp/thêm ngành từ file (lấy từ lịch sử commit của file cấu hình) và xoá ngành nạp nhầm.
+    Chỉ ĐỌC lịch sử + dùng lại thao tác xoá của tab Cấu hình; lỗi ở đây không ảnh hưởng phần còn lại."""
+    with st.expander("📜 Nhật ký nạp ngành từ file (ai nạp gì, lúc nào) — xoá được nếu nạp nhầm"):
+        S = tao_store()
+        if S.backend != "github":
+            st.caption("Lưu cục bộ nên không có nhật ký (chỉ có khi lưu trên GitHub).")
+            return
+        try:
+            ls = [x for x in S.lich_su(F_SHARED["cau_hinh"], 60)
+                  if "Thêm cấu hình ngành từ file SKU" in x["thong_diep"] or "Nạp cấu hình ngành từ file mẫu" in x["thong_diep"]]
+        except Exception as e:  # noqa: BLE001
+            st.caption(f"Không đọc được nhật ký: {e}")
+            return
+        if not ls:
+            st.caption("(Chưa có lần nạp ngành nào.)")
+            return
+        st.dataframe(pd.DataFrame([{"Lúc (UTC)": x["luc"].replace("T", " ").rstrip("Z"),
+                                    "Nội dung": x["thong_diep"]} for x in ls]),
+                     hide_index=True, height=min(300, 40 + 35 * len(ls)))
+        ids = []
+        for x in ls:
+            for m in re.findall(r"\((\d+)\)", x["thong_diep"]):
+                if m in ss.cau_hinh and m not in ids:
+                    ids.append(m)
+        if ids:
+            xoa = st.selectbox("Ngành đã nạp muốn xoá khỏi cấu hình", ids, key="nk_xoa",
+                               format_func=lambda c: f"{c} — {ss.cau_hinh[c].get('ten', '')}")
+            if st.button("🗑️ Xoá ngành này khỏi cấu hình", key="nk_xoa_btn"):
+                nap_shared()
+                ss.cau_hinh.pop(xoa, None)
+                bump()
+                luu(["shared:cau_hinh"], f"Xoá cấu hình ngành hàng {xoa} (từ nhật ký nạp ngành)")
+                st.rerun()
+        st.caption("Muốn quay về hẳn 1 thời điểm: tab «Lịch sử & khôi phục».")
+
+
 def tab_cau_hinh(sua_duoc: bool) -> None:
+    if ss.get("admin"):
+        khu_nhat_ky_nap_nganh()
     ch = ss.cau_hinh
     tong = pd.DataFrame([{"Mã NH": c, "Tên": v.get("ten", ""), "Số cột": len(v.get("cot", [])),
                           "Số cột FILTER": sum(C.la_cot_filter(x) for x in v.get("cot", []))} for c, v in ch.items()])
