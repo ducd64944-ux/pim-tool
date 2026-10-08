@@ -141,7 +141,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.4 · 2026-10-08"
+APP_VERSION = "web-4.5 · 2026-10-08"
 ss = st.session_state
 
 
@@ -2184,13 +2184,21 @@ def file_xin_data() -> dict:
 
 
 def nut_xin_data(key: str) -> None:
-    x = file_xin_data()
-    n, nm = len(x["sku"]), int((x["model"]["Tình trạng"].str.startswith("MODEL")).sum()) if len(x["model"]) else 0
+    # Bảo vệ tốc độ: chỉ dựng lại file xin data khi dữ liệu THỰC SỰ đổi (trước đây dựng lại sau mỗi lần bấm bất kỳ)
+    khoa = (ss.get("ver", 0), ss.get("ver_map", 0), id(ss["import"]), len(ss["import"]), id(ss.data_sp),
+            len(ss.data_sp), id(ss.bang), id(ss.meta))
+    if ss.get("_xd_khoa") != khoa or "_xd_kq" not in ss:
+        x = file_xin_data()
+        n_ = len(x["sku"])
+        nm_ = int((x["model"]["Tình trạng"].str.startswith("MODEL")).sum()) if len(x["model"]) else 0
+        ss._xd_kq = (n_, nm_, C.xlsx_nhieu_sheet({"XIN DATA CMS": x["sku"], "THEO MODEL": x["model"]}) if n_ else b"")
+        ss._xd_khoa = khoa
+    n, nm, xlsx_b = ss._xd_kq
     if not n:
         st.caption("✔ Mọi SKU đều có giá trị — không cần xin thêm data CMS.")
         return
     st.download_button(f"📨 Tải file xin data CMS ({n:,} SKU · {nm:,} model không có giá trị)",
-                       C.xlsx_nhieu_sheet({"XIN DATA CMS": x["sku"], "THEO MODEL": x["model"]}),
+                       xlsx_b,
                        file_name=f"XIN_DATA_CMS_{ss.ws}_{C.bay_gio()[:10]}.xlsx", key=key,
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
@@ -3867,6 +3875,7 @@ def tab_sku(k: dict) -> None:
 DV_OPTIONS = ["", "cm", "mm", "m", "kg", "g", "inch", "lít", "W", "mAh", "V", "Hz", "dB"]
 
 
+@st.fragment
 def tab_don_vi(k: dict) -> None:
     st.markdown("##### ① Đơn vị theo cột (đúng rule cũ 66.py: chỉ thêm vào ô SỐ TRƠN, không đụng FILTER)")
     ds = pd.DataFrame(k["don_vi_cot"])
@@ -5309,12 +5318,26 @@ def vung_du_lieu() -> None:
 # CHẠY
 # ============================================================================
 dang_nhap()
+def _nap_bao_ve(nhan: str, ham) -> None:
+    """Tải dữ liệu lúc mở app: lỗi tạm thời (GitHub bận/mạng) -> báo nhẹ + nút Thử lại, KHÔNG sập app, KHÔNG mất đăng nhập."""
+    try:
+        with st.spinner(nhan):
+            ham()
+    except Exception as e:  # noqa: BLE001
+        _ghi_loi(e, nhan)
+        st.warning("⏳ Chưa tải được dữ liệu (kho dữ liệu đang bận hoặc mạng chập chờn). Dữ liệu của bạn vẫn an toàn — "
+                   "bấm **Thử lại** sau vài giây.")
+        if st.button("🔄 Thử lại", type="primary", key="nap_thu_lai"):
+            st.rerun()
+        if ss.get("admin"):
+            st.caption(f"Chi tiết: {type(e).__name__}: {str(e)[:200]}")
+        st.stop()
+
+
 if "cau_hinh" not in ss:
-    with st.spinner("Đang tải dữ liệu dùng chung…"):
-        nap_shared()
+    _nap_bao_ve("Đang tải dữ liệu dùng chung…", nap_shared)
 if ss.get("ws_da_nap") != ss.ws:
-    with st.spinner(f"Đang tải workspace {ss.ws}…"):
-        nap_workspace()
+    _nap_bao_ve(f"Đang tải workspace {ss.ws}…", nap_workspace)
 thanh_ben()
 # Non-admin: ẩn chỉ báo hệ thống (Streamlit running/error indicators)
 if not ss.get("admin"):

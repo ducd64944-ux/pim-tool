@@ -1,6 +1,11 @@
 [server]
 maxUploadSize = 500
 maxMessageSize = 500
+# Nhẹ máy chủ: không theo dõi file thay đổi (Cloud tự khởi động lại khi push code)
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false
 
 [theme]
 base = "light"
