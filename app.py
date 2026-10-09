@@ -122,6 +122,35 @@ if _DMX_BANNER.exists():
 elif _LOGO.exists():
     st.logo(str(_LOGO), size="large", icon_image=str(_LOGO))
 
+# ---- Bảo đảm các module phụ (pim_core, gh_store…) là BẢN MỚI sau khi triển khai lại ----
+# Máy chủ giữ module đã import trong bộ nhớ (và đã tắt theo dõi file) nên sau khi cập nhật code, app.py mới có thể chạy với
+# pim_core cũ -> lỗi "module 'pim_core' has no attribute …". Phát hiện lệch -> nạp lại module, không cần Reboot app.
+import importlib as _il  # noqa: E402
+import sys as _sys  # noqa: E402
+
+_CORE_CAN = "2026-10-09.1"  # phải khớp pim_core.CORE_VERSION; đổi cả 2 nơi mỗi khi pim_core thêm hàm/hằng mới
+
+
+def _bao_dam_module_moi() -> None:
+    for _n in ("gh_store", "pim_core", "ai_helper", "dong_bo"):
+        _m = _sys.modules.get(_n)
+        _f = getattr(_m, "__file__", None)
+        if _m is None or not _f:
+            continue
+        try:
+            _mt = os.path.getmtime(_f)
+            if _n == "pim_core":
+                _cu = getattr(_m, "CORE_VERSION", None) != _CORE_CAN
+            else:
+                _cu = getattr(_m, "_PIM_MT", _mt) != _mt
+            if _cu:
+                _il.reload(_m)
+            _m._PIM_MT = _mt
+        except Exception:  # noqa: BLE001  — không nạp lại được thì chạy tiếp với bản đang có
+            pass
+
+
+_bao_dam_module_moi()
 import ai_helper as AIH  # noqa: E402
 import pim_core as C  # noqa: E402
 import dong_bo as DB  # noqa: E402
@@ -144,7 +173,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.14 · 2026-10-09"
+APP_VERSION = "web-4.15 · 2026-10-09"
 ss = st.session_state
 
 

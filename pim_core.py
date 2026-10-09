@@ -527,6 +527,7 @@ TEN_COT: Dict[str, List[str]] = {
 }
 
 
+CORE_VERSION = "2026-10-09.1"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
 ID_TIEN_TO = "ID_"  # SP CMS CHƯA có PRODUCTCODE (SKU) -> mã tạm "ID_<PRODUCTID>" để đi qua pipeline như 1 SKU thường
 
 
