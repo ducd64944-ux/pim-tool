@@ -173,7 +173,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.19 · 2026-10-09"
+APP_VERSION = "web-4.20 · 2026-10-09"
 ss = st.session_state
 
 
@@ -1207,6 +1207,41 @@ def luu(phan: list, thong_diep: str, them_file: dict | None = None, ghi_de: dict
         ss._luu_lai = (list(phan), thong_diep)
         st.error(f"⚠️ CHƯA LƯU ĐƯỢC: {msg} — dữ liệu vẫn còn trên màn hình, bấm «🔁 Lưu lại» ở đầu trang.")
     return ok
+
+
+def nut_lam_moi_lo() -> None:
+    """Nút xoá NHANH dữ liệu của LÔ đang làm (làm mới được bằng cách nạp lại): IMPORT + DATA SP + kết quả map + sửa tay theo SKU.
+    Giữ nguyên: Cấu hình, Mapping TSKT/FILTER, DATA PIM (dùng chung mọi người), đơn vị/biến đổi hàng loạt, quy tắc.
+    Spec cũ (file PIM lớn, nạp lại mất công) chỉ xoá khi tick riêng. Luôn có bước xác nhận."""
+    if ss.get("_lm_kq"):
+        st.success(ss.pop("_lm_kq"))
+    n_imp, n_dsp = len(ss.get("import", [])), len(ss.get("data_sp", []))
+    n_bang = sum(len(b.get("rows", [])) for b in ss.get("bang", {}).values())
+    n_sua = len(ss.get("sua", {}))
+    n_spec = ss.spec.sku.nunique() if ("spec" in ss and len(ss.spec)) else 0
+    co_lo = bool(n_imp or n_dsp or n_bang or n_sua)
+    with st.popover("🧹 Làm mới lô (xoá nhanh)", disabled=not (co_lo or n_spec)):
+        st.markdown("**Sẽ xoá (của lô đang làm):**")
+        st.caption(f"IMPORT {n_imp:,} SKU · DATA SP {n_dsp:,} dòng · Kết quả map {n_bang:,} SKU · Sửa tay {n_sua:,} ô")
+        st.markdown("**Giữ nguyên:** Cấu hình, Mapping TSKT/FILTER, DATA PIM (dùng chung), đơn vị / biến đổi hàng loạt, quy tắc.")
+        xoa_spec = st.checkbox(f"Xoá cả Spec cũ ({n_spec:,} SKU) — nạp lại sẽ mất công", key="lm_spec", disabled=not n_spec)
+        st.caption("Không hoàn tác được. Muốn dùng lại phải nạp lại file.")
+        if st.button("🧹 Xoá ngay", type="primary", key="lm_ok", disabled=not (co_lo or xoa_spec)):
+            ss["import"] = ss["import"].iloc[0:0]
+            ss.data_sp = ss.data_sp.iloc[0:0]
+            ss.bang, ss.meta, ss.sua = {}, {}, {}
+            ss.pop("ghep_id", None)  # ID CMS gắn tay của lô cũ
+            phan = ["import", "data_sp", "ket_qua", "settings"]
+            if xoa_spec and "spec" in ss:
+                ss.spec = ss.spec.iloc[0:0]
+                phan.append("spec")
+            ss.pop("xuat", None)
+            ss.kho_chon = None
+            don_ram(True)  # bỏ bảng kiểm tra/báo cáo tính lại được + trả RAM về máy chủ
+            bump()
+            luu(phan, "Làm mới lô: xoá IMPORT, DATA SP, kết quả map, sửa tay" + (", spec cũ" if xoa_spec else ""))
+            ss["_lm_kq"] = "✔ Đã làm mới lô — sẵn sàng nạp dữ liệu mới. Cấu hình, mapping và đơn vị vẫn còn."
+            st.rerun()
 
 
 def thanh_kho(items: list) -> None:
@@ -5710,6 +5745,7 @@ try:
                    ("spec", "Spec cũ", _s_spec, "SKU"), ("bang", "Kết quả map", _s_bang_sku, f"SKU · {_s_bang_cate} ngành"),
                    ("cau_hinh", "Cấu hình", _s_ch, "ngành"), ("map_tskt", "Mapping TSKT", _s_mt, "dòng"),
                    ("map_filter", "FILTER", _s_mf, "dòng")])
+        nut_lam_moi_lo()
     except Exception:
         pass
     thanh_luu_lai()
