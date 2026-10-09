@@ -173,7 +173,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.16 · 2026-10-09"
+APP_VERSION = "web-4.17 · 2026-10-09"
 ss = st.session_state
 
 
@@ -4143,6 +4143,41 @@ def tab_sku(k: dict) -> None:
 
 
 DV_OPTIONS = ["", "cm", "mm", "m", "kg", "g", "inch", "lít", "W", "mAh", "V", "Hz", "dB"]
+PV_NHAN = {"so": "Số trơn", "tung_phan": "Từng giá trị (9|10)", "tat_ca": "Có số / chữ+số"}
+PV_NGUOC = {v: k_ for k_, v in PV_NHAN.items()}
+
+
+def _buoc_bang(cate: str, code: str):
+    """Bước TRƯỚC/SAU đặt từ bảng ① (đánh dấu nguon='bang') của 1 cột, hoặc None."""
+    for x in ss.dv.get((cate, code, "bd")) or []:
+        if isinstance(x, dict) and x.get("nguon") == "bang":
+            return x
+    return None
+
+
+def _ap_truoc_sau(cate: str, code: str, truoc, sau, pham_vi) -> None:
+    """Ghi TRƯỚC / SAU / PHẠM VI của 1 cột từ bảng ①.
+    * Chỉ SAU + phạm vi «Số trơn» -> RULE CŨ (ss.dv[(ngành, mã)] = đơn vị), y như trước đây.
+    * Có TRƯỚC hoặc phạm vi khác -> 1 bước biến đổi như mục ② (them_truoc / them_sau / ca_hai), đánh dấu nguon='bang'
+      để lần sau thay đúng bước này, KHÔNG đụng các bước ② khác của cột."""
+    tr, sa = C.chuan_hoa_key(truoc or ""), C.chuan_hoa_key(sau or "")
+    pv = PV_NGUOC.get(pham_vi, "so")
+    kk = (cate, code, "bd")
+    khac = [x for x in (ss.dv.get(kk) or []) if not (isinstance(x, dict) and x.get("nguon") == "bang")]
+    if tr or pv != "so":
+        ss.dv.pop((cate, code), None)
+        if tr or sa:
+            kd = "ca_hai" if tr and sa else ("them_truoc" if tr else "them_sau")
+            khac.append({"kieu": kd, "pham_vi": pv, "a": tr if kd != "them_sau" else sa,
+                         "b": sa if kd == "ca_hai" else "", "he_so": "", "nguon": "bang"})
+    elif sa:
+        ss.dv[(cate, code)] = sa
+    else:
+        ss.dv.pop((cate, code), None)
+    if khac:
+        ss.dv[kk] = khac
+    else:
+        ss.dv.pop(kk, None)
 
 
 @st.fragment
@@ -4154,11 +4189,22 @@ def tab_don_vi(k: dict) -> None:
         if not tat_ca:
             ds = ds[ds.la_kt | (ds.da_luu != "") | ds.apply(lambda r: bool(ss.dv.get((r.cate, r.code))), axis=1)]
         ds = ds.sort_values(["cate", "so_tron"], ascending=[True, False]).reset_index(drop=True)
+        _tr_, _sa_, _pv_ = [], [], []
+        for a, b in zip(ds.cate, ds.code):
+            x_ = _buoc_bang(a, b)
+            if x_:  # đã đặt TRƯỚC/SAU từ bảng này (kiểu giống ②) -> nạp lại đúng giá trị
+                kd_, aa_, bb_ = x_.get("kieu"), x_.get("a", ""), x_.get("b", "")
+                _tr_.append(aa_ if kd_ in ("ca_hai", "them_truoc") else "")
+                _sa_.append(bb_ if kd_ == "ca_hai" else (aa_ if kd_ == "them_sau" else ""))
+                _pv_.append(PV_NHAN.get(x_.get("pham_vi", "so"), PV_NHAN["so"]))
+            else:  # rule cũ: chỉ ĐƠN VỊ (sau) cho ô số trơn
+                _tr_.append("")
+                _sa_.append(ss.dv.get((a, b), "") if isinstance(ss.dv.get((a, b), ""), str) else "")
+                _pv_.append(PV_NHAN["so"])
         hien = pd.DataFrame({"NH": ds.cate, "Mã TSKT": ds.code, "Tên": ds.ten,
                              "Số trơn / có dữ liệu": [f"{a} / {b}" for a, b in zip(ds.so_tron, ds.tong)],
                              "Giá trị hiện tại (sau áp)": ds.vi_du, "Gợi ý": ds.goi_y,
-                             "ĐƠN VỊ": [ss.dv.get((a, b), "") if isinstance(ss.dv.get((a, b), ""), str) else ""
-                                        for a, b in zip(ds.cate, ds.code)]})
+                             "THÊM TRƯỚC": _tr_, "ĐƠN VỊ (SAU)": _sa_, "PHẠM VI": _pv_})
         c = st.columns([1.4, 1, 3])
         if c[0].button("✨ Điền gợi ý (cột còn số trơn, chưa chọn)"):
             for a, b, g, n in zip(ds.cate, ds.code, ds.goi_y, ds.so_tron):
@@ -4167,20 +4213,21 @@ def tab_don_vi(k: dict) -> None:
             bump()
             luu(["settings"], "Điền đơn vị theo gợi ý")
             st.rerun()
-        c[2].caption("Gõ đơn vị TUỲ Ý vào cột ĐƠN VỊ (cm, mm, kg, g, inch, W, mAh, lít, giờ…). Ô đã có chữ giữ "
-                     "nguyên. Bấm Áp để xem kết quả ngay.")
+        c[2].caption("Gõ chữ / đơn vị TUỲ Ý vào **THÊM TRƯỚC** (vd: Khoảng, Dài) và/hoặc **ĐƠN VỊ (SAU)** (cm, mm, kg, g, inch, "
+                     "W, mAh, lít, giờ…). **PHẠM VI** giống mục ②: Số trơn (mặc định, rule cũ) · Từng giá trị (9|10) · "
+                     "Có số/chữ+số (vd «Driver 40mm»). Ô chữ thuần (Không / Đang cập nhật) không bị thêm. "
+                     "Bấm Áp để xem kết quả ngay.")
         ed = st.data_editor(hien, hide_index=True, height=min(460, 40 + 35 * len(hien)), key=f"ed_dv_{ss.ver}",
-                            disabled=[x for x in hien.columns if x != "ĐƠN VỊ"],
-                            column_config={"ĐƠN VỊ": st.column_config.TextColumn(width="small",
-                                                                                help="vd: " + ", ".join(DV_OPTIONS[1:]))})
+                            disabled=[x for x in hien.columns if x not in ("THÊM TRƯỚC", "ĐƠN VỊ (SAU)", "PHẠM VI")],
+                            column_config={
+                                "THÊM TRƯỚC": st.column_config.TextColumn(width="small", help="Chữ thêm vào TRƯỚC giá trị"),
+                                "ĐƠN VỊ (SAU)": st.column_config.TextColumn(
+                                    width="small", help="Thêm vào SAU giá trị, vd: " + ", ".join(DV_OPTIONS[1:])),
+                                "PHẠM VI": st.column_config.SelectboxColumn(width="small", options=list(PV_NHAN.values()),
+                                                                            required=True)})
         if st.button("▶ Áp đơn vị & xem lại", type="primary"):
             for i in range(len(ds)):
-                v = C.chuan_hoa_key(ed.at[i, "ĐƠN VỊ"] or "")
-                key = (ds.cate[i], ds.code[i])
-                if v:
-                    ss.dv[key] = v
-                else:
-                    ss.dv.pop(key, None)
+                _ap_truoc_sau(ds.cate[i], ds.code[i], ed.at[i, "THÊM TRƯỚC"], ed.at[i, "ĐƠN VỊ (SAU)"], ed.at[i, "PHẠM VI"])
             bump()
             luu(["settings"], "Áp đơn vị hàng loạt")
             st.rerun()

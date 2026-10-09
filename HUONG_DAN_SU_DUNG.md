@@ -23,7 +23,7 @@
 2. Tool tự chuyển sang trang **🔍 Kiểm tra & Đối chiếu**
 3. Xem bảng QC, sửa lỗi nếu có:
    - **Ô trống** → bấm ✨ Lấy PIM cũ
-   - **Đơn vị** → bấm 📏 Đơn vị & biến đổi
+   - **Đơn vị** → bấm 📏 Đơn vị & biến đổi — bảng ① có cột **THÊM TRƯỚC**, **ĐƠN VỊ (SAU)** và **PHẠM VI** (Số trơn / Từng giá trị / Có số-chữ+số) giống mục ②; chỉ điền SAU + Số trơn là rule cũ
    - **FILTER sai** → bấm vào dòng lỗi để chọn lại
 
 > **Mẹo:** Sửa xong bấm Map lại để cập nhật kết quả.
