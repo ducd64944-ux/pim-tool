@@ -101,8 +101,16 @@ def test_giong_desktop():
         d = _desktop(Path(t))
     w, r = _web()
     assert set(d) == set(w), (sorted(d), sorted(w))
+    import re
     for k in d:
-        assert d[k] == w[k], f"{k}\nDESKTOP {d[k]}\nWEB     {w[k]}"
+        # KHÁC DUY NHẤT cố ý so với desktop: ô FILTER nhiều mã viết sát dấu phẩy (25,30) vì PIM không cắt khoảng trắng
+        hdr = d[k][0]
+        dk = [d[k][0], d[k][1]] + [[re.sub(r"\s*,\s*", ",", c) if isinstance(c, str) and "filter" in (hdr[j] or "")
+                                    and "tskt" not in (hdr[j] or "") else c for j, c in enumerate(row)] for row in d[k][2:]]
+        assert dk == w[k], f"{k}\nDESKTOP {dk}\nWEB     {w[k]}"
+    assert any("215361,215363" in str(row) for rows in w.values() for row in rows)
+    assert not any(", " in str(c) and "filter" in (rows[0][j] or "") and "tskt" not in (rows[0][j] or "")
+                   for rows in w.values() for row in rows[2:] for j, c in enumerate(row) if c)
     lg = {x[3].split(" — ")[0] for x in r["log"]}
     assert "CATEGORYID không tồn tại trong mapping" in lg and "Không có tab TSKT lẫn cấu hình" in lg
 

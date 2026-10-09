@@ -59,6 +59,13 @@ SEP_TSKT = "|"
 SEP_FILTER = ", "
 
 
+def gon_filter_khi_xuat(v: str) -> str:
+    """CHỈ khi ghi file import: nhiều mã FILTER viết sát dấu phẩy, vd "25, 30" -> "25,30".
+    PIM nhận mã sau dấu phẩy KHÔNG cắt khoảng trắng: " 30" không khớp option 30 (chỉ hiện số, không tick).
+    Bên trong tool vẫn dùng SEP_FILTER như desktop để map/so sánh/quy tắc không đổi."""
+    return re.sub(r"\s*,\s*", ",", v).strip(",") if v and "," in v else v
+
+
 def ep_text(v) -> str:
     """Mọi giá trị -> chuỗi; số nguyên dạng float (215361.0) -> '215361'."""
     if v is None:
@@ -527,7 +534,7 @@ TEN_COT: Dict[str, List[str]] = {
 }
 
 
-CORE_VERSION = "2026-10-09.2"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
+CORE_VERSION = "2026-10-09.3"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
 ID_TIEN_TO = "ID_"  # SP CMS CHƯA có PRODUCTCODE (SKU) -> mã tạm "ID_<PRODUCTID>" để đi qua pipeline như 1 SKU thường
 
 
@@ -2108,6 +2115,8 @@ def xuat_file_import(bang: Dict[str, dict], imp: pd.DataFrame, sua: dict, don_vi
                 v, loai = bien_doi_o(cate, r["sku"], c, v0, sua, don_vi, rong)
                 if loai:
                     dem[{"sua": "so_o_sua", "dv": "so_o_dv", "bd": "so_o_bd"}.get(loai, "so_o_rong")] += 1
+                if v and la_cot_filter(c):
+                    v = gon_filter_khi_xuat(v)  # 25, 30 -> 25,30 (PIM không cắt khoảng trắng sau dấu phẩy)
                 out.append(v)
             if bo_dong_trong and not any(v for c, v in zip(cot, out) if c not in ("model_code", "sku", "variant_code")):
                 dem["bo_trong"] += 1
