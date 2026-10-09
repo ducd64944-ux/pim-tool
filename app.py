@@ -144,7 +144,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.12 · 2026-10-09"
+APP_VERSION = "web-4.13 · 2026-10-09"
 ss = st.session_state
 
 
@@ -2018,14 +2018,14 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         _HD = "model_code\tsku\tvariant_code\tcategory_code\tPRODUCTID"
         if _che.startswith("📋"):
             st.caption("Copy 1 cột từ Excel rồi dán vào ô tương ứng — **mỗi dòng 1 giá trị, thứ tự dòng khớp nhau** "
-                       "(dòng thứ n của ô này ↔ dòng thứ n của các ô kia). Model / Biến thể / Mã ngành chỉ có "
-                       "**1 giá trị** thì tool áp cho tất cả dòng. Mỗi dòng cần **SKU hoặc ID CMS** (SP chưa có SKU "
+                       "(dòng thứ n của ô này ↔ dòng thứ n của các ô kia). Model / Biến thể chỉ có "
+                       "**1 giá trị** thì tool áp cho tất cả dòng. Mã ngành điền ở ô **Mã ngành mặc định** phía trên (áp cho mọi dòng). Mỗi dòng cần **SKU hoặc ID CMS** (SP chưa có SKU "
                        "thì nhập **ID CMS = PRODUCTID** trong file CMS export; có cả hai cũng được).")
-            _c3 = st.columns(5)
+            _c3 = st.columns(4)
             _cot = {}
             for _col, _nhan, _k in zip(_c3, ("Model (model_code)", "SKU", "Mã biến thể (variant_code)",
-                                             "Mã ngành (category_code)", "ID CMS (PRODUCTID)"),
-                                       ("model_code", "sku", "variant_code", "category_code", "pid")):
+                                             "ID CMS (PRODUCTID)"),
+                                       ("model_code", "sku", "variant_code", "pid")):
                 with _col:
                     _cot[_k] = st.text_area(_nhan, height=170, key=f"{key}_tay_{_k}{lan}",
                                             placeholder="mỗi dòng 1 giá trị\n(dán cả cột từ Excel)")
@@ -2042,8 +2042,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                                 f"dòng (hoặc để trống cả ô). Chưa nạp để khỏi lệch hàng.")
                     break
             if not _loi_tay:
-                for k_, ten_ in (("model_code", "Model"), ("variant_code", "Mã biến thể"),
-                                 ("category_code", "Mã ngành")):
+                for k_, ten_ in (("model_code", "Model"), ("variant_code", "Mã biến thể")):
                     _m = len(_ds[k_])
                     if _m > 1 and _m != _n:
                         _loi_tay = (f"{ten_} có {_m:,} dòng nhưng SKU/ID có {_n:,} dòng — số dòng phải BẰNG nhau (hoặc "
@@ -2060,7 +2059,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                     _p = _pd[_i] if _i < len(_pd) else ""
                     if _s or _p:
                         _dong.append("\t".join([_lay("model_code", _i), _s, _lay("variant_code", _i),
-                                                 _lay("category_code", _i) or cate_mac.strip(), _p]))
+                                                 cate_mac.strip(), _p]))
         else:
             _cau = {c_: st.column_config.TextColumn(c_) for c_ in ("model_code", "sku", "variant_code", "category_code")}
             _cau["PRODUCTID"] = st.column_config.TextColumn("ID CMS (PRODUCTID)")
