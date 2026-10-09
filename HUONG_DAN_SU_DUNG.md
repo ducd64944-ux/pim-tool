@@ -46,4 +46,5 @@
 - **📮 Đề xuất sửa CMS**: dữ liệu CMS sai → đề xuất sửa → admin duyệt → dùng chung cho mọi người.
 - **⚙️ Cấu hình**: xem/sửa mapping, cấu hình ngành (admin).
 - **💾 Lưu**: thay đổi tự lưu lên kho. Nút 💾 trên thanh bên để lưu thủ công.
+- **🧹 Dọn RAM** (cuối trang): bấm khi trang chậm / RAM đầy. Giải phóng bộ nhớ, không mất dữ liệu đang làm. Khi RAM > 75% tool cũng tự dọn và hiện cảnh báo.
 - **Lỗi?** Thử tải lại trang. Nếu vẫn lỗi → liên hệ admin.

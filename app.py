@@ -144,7 +144,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.13 · 2026-10-09"
+APP_VERSION = "web-4.14 · 2026-10-09"
 ss = st.session_state
 
 
@@ -770,7 +770,53 @@ def viec_nang(ten: str, uoc_mb: int):
         with d["lk"]:
             d["dang"].pop(tid, None)
         d["sem"].release()
+        tra_ram()
+
+
+def tra_ram() -> None:
+    """Thu gom rác Python + trả bộ nhớ trống về hệ điều hành (malloc_trim — pandas hay giữ lại vùng nhớ đã giải phóng)."""
+    try:
         gc.collect()
+        gc.collect()
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# Kết quả tính lại được khi cần (lười) -> xoá an toàn, không mất dữ liệu người dùng
+_CACHE_DAN_XUAT = ("ds", "ds_ver", "kc_kq", "kc_ver", "dht", "dht_ver", "nq_kq", "nq_ver", "_xd_kq", "_xd_khoa", "ws_mau")
+
+
+def don_ram(ca_xuat: bool = False) -> dict:
+    """Dọn bộ nhớ của PHIÊN này + trả RAM về máy chủ. KHÔNG đụng dữ liệu đang làm (IMPORT, DATA SP, kết quả map, mapping,
+    cấu hình, sửa tay, đơn vị). Xoá: các bảng kiểm tra tính lại được, bảng file vừa đọc ở Nạp nhanh, file báo cáo đã dựng;
+    ca_xuat=True: cả các file import đã tạo (phải bấm Tạo file import lại nếu muốn tải)."""
+    truoc = ram_mb()[0]
+    n = 0
+    for k in _CACHE_DAN_XUAT:
+        if k in ss:
+            ss.pop(k, None)
+            n += 1
+    for k in list(ss.keys()):  # kết quả đọc file của Nạp nhanh (giữ bảng lớn sau khi nạp xong)
+        if isinstance(k, str) and k.endswith("_kq") and k != "ai_sku_kq" and f"{k[:-3]}_giay" in ss:
+            for h in ("_kq", "_sig", "_giay"):
+                ss.pop(k[:-3] + h, None)
+            n += 1
+    if ca_xuat and "xuat" in ss:
+        ss.pop("xuat", None)
+        n += 1
+    try:
+        st.cache_data.clear()
+    except Exception:  # noqa: BLE001
+        pass
+    tra_ram()
+    sau = ram_mb()[0]
+    return {"truoc": truoc, "sau": sau, "n": n}
+
+
+def _cb_don_ram() -> None:
+    ss["_don_ram_kq"] = don_ram(bool(ss.get("_don_ram_xuat")))
 
 
 def uoc_mb_map() -> int:
@@ -2353,6 +2399,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             bump()
             ss.flash = ["✔ Đã nạp: " + " · ".join(bao)]
             ss.pop(f"{key}_sig", None)
+            ss.pop(f"{key}_kq", None)  # bảng file vừa đọc không còn cần -> trả RAM
             ss[f"{key}_lan"] = lan + 1
             if len(ss["import"]) and len(ss.data_sp):
                 chay_map_ui()
@@ -2376,6 +2423,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
     if phan and luu(phan + ["settings"], "Nạp nhanh: " + ", ".join(t for t, _ in kq)):
         ss.flash = ["✔ Đã nạp: " + " · ".join(bao)]
         ss.pop(f"{key}_sig", None)
+        ss.pop(f"{key}_kq", None)  # bảng file vừa đọc không còn cần -> trả RAM
         ss[f"{key}_lan"] = lan + 1
         if tu_map and len(ss["import"]) and len(ss.data_sp):
             chay_map_ui()
@@ -5625,14 +5673,35 @@ except Exception as _e_main:
     else:
         _hien_loi_vui()
 
-# Footer: admin thấy version, non-admin thấy branding sạch
-if ss.get("admin"):
-    try:
+# Footer: mọi người có nút dọn RAM + cảnh báo khi RAM cao; admin thấy thêm version/số liệu
+try:
+    _u, _g, _c = ram_mb()
+    _dp = _dieu_phoi()
+    _cao = bool(_g) and _u > 0.75 * _g
+    if _cao and time.time() - _dp.get("tra_luc", 0) > 30:  # RAM cao -> tự thu gom (tối đa 30 giây/lần cho cả máy chủ)
+        _dp["tra_luc"] = time.time()
+        tra_ram()
         _u, _g, _c = ram_mb()
-        _dp = _dieu_phoi()
-        _sk = f" · RAM {_u:,}/{_g:,} MB" if _g else f" · RAM còn {_c:,} MB"
-        _sk += f" · việc nặng {len(_dp['dang'])}/{_dp['toi_da']}"
-    except Exception:  # noqa: BLE001
-        _sk = ""
-    st.caption(f"<div style='text-align:center;margin-top:2rem;color:#94a3b8;font-size:.78rem'>"
+        _cao = bool(_g) and _u > 0.75 * _g
+except Exception:  # noqa: BLE001
+    _u = _g = _c = 0
+    _dp = {"dang": {}, "toi_da": 1}
+    _cao = False
+_kq_dr = ss.pop("_don_ram_kq", None)
+_cf = st.columns([4, 2, 4])
+with _cf[1]:
+    st.button("🧹 Dọn RAM", key="btn_don_ram", on_click=_cb_don_ram, width="stretch",
+              help="Giải phóng bộ nhớ của phiên này và trả RAM về máy chủ khi bị đầy / chậm. KHÔNG mất dữ liệu đang làm "
+                   "(IMPORT, DATA SP, kết quả map, mapping, sửa tay…). Chỉ xoá các bảng kiểm tra tính lại được.")
+    st.checkbox("Cả file import đã tạo", key="_don_ram_xuat",
+                help="Tick thì dọn luôn các file import đã tạo (muốn tải lại phải bấm «Tạo file import» lần nữa).")
+if _kq_dr:
+    st.success(f"✔ Đã dọn: RAM {_kq_dr['truoc']:,} → {_kq_dr['sau']:,} MB (xoá {_kq_dr['n']} bộ nhớ đệm). "
+               "Dữ liệu đang làm vẫn nguyên.")
+if _cao:
+    st.warning(f"⚠️ RAM máy chủ đang cao ({_u:,}/{_g:,} MB). Bấm «🧹 Dọn RAM»; nếu vẫn cao, chờ người khác xong hoặc chia lô "
+               "nhỏ hơn để tránh bị văng.")
+if ss.get("admin"):
+    _sk = (f" · RAM {_u:,}/{_g:,} MB" if _g else f" · RAM còn {_c:,} MB") + f" · việc nặng {len(_dp['dang'])}/{_dp['toi_da']}"
+    st.caption(f"<div style='text-align:center;margin-top:1rem;color:#94a3b8;font-size:.78rem'>"
                f"PIM Tool {APP_VERSION}{_sk}</div>", unsafe_allow_html=True)
