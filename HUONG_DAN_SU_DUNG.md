@@ -9,7 +9,7 @@
    - **File mẫu ngành** → Cấu hình ngành
    - **Danh sách SKU / file PIM** → IMPORT
    - **Workspace theo mẫu** → lấy nhiều loại cùng lúc
-4. Không có file? Dán bảng từ Excel, hoặc tick **✍️ Tự điền tay model / SKU / mã biến thể** rồi **dán theo cột**: copy cột Model / SKU / Mã biến thể / Mã ngành / ID CMS từ Excel dán vào 5 ô (mỗi dòng 1 giá trị, thứ tự dòng khớp nhau; Model chỉ 1 giá trị thì áp cho tất cả SKU). Mỗi dòng cần **SKU hoặc ID CMS** (SP chưa có SKU/code thì nhập ID CMS = PRODUCTID trong file CMS export; file CMS phải nạp cùng hoặc đã nạp trước); có thể đặt *Mã ngành mặc định*. Muốn gõ tay từng dòng thì chọn **Bảng gõ tay** → bấm **Nạp vào tool**
+4. Không có file? Tick **✍️ Tự điền tay model / SKU / mã biến thể** rồi **dán theo cột**: copy cột Model / SKU / Mã biến thể / Mã ngành / ID CMS từ Excel dán vào 5 ô (mỗi dòng 1 giá trị, thứ tự dòng khớp nhau; Model chỉ 1 giá trị thì áp cho tất cả SKU). Mỗi dòng cần **SKU hoặc ID CMS** (SP chưa có SKU/code thì nhập ID CMS = PRODUCTID trong file CMS export; file CMS phải nạp cùng hoặc đã nạp trước); có thể đặt *Mã ngành mặc định*. Muốn gõ tay từng dòng thì chọn **Bảng gõ tay** → bấm **Nạp vào tool**
 
 > **File import theo ID:** file có cột `PRODUCTID` (hoặc ID CMS / ID model / ID biến thể) thay cho cột SKU cũng nạp được. SP trong CMS export chưa có PRODUCTCODE vẫn được giữ, khớp theo PRODUCTID.
 

@@ -144,7 +144,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.11 · 2026-10-09"
+APP_VERSION = "web-4.12 · 2026-10-09"
 ss = st.session_state
 
 
@@ -1995,7 +1995,7 @@ def khu_nap_mau() -> None:
 def khu_nap_nhanh(key: str = "nn") -> None:
     st.markdown("<div class='buoc'><b>⚡ Nạp nhanh 1 cục:</b> kéo thả 1 hoặc nhiều file BẤT KỲ — workspace theo mẫu, "
                 "file CMS export, danh sách SKU / file export PIM (model, SKU, biến thể, có hoặc không có cột TSKT) — "
-                "hoặc dán bảng copy từ Excel. Tool <b>tự nhận loại file, tự nhận cột</b> (tên tiếng Việt/Anh, có/không "
+                "hoặc tick ✍️ Tự điền tay để dán cột model / SKU / ID từ Excel. Tool <b>tự nhận loại file, tự nhận cột</b> (tên tiếng Việt/Anh, có/không "
                 "dấu, thiếu tiêu đề thì đoán theo nội dung), <b>tự lọc</b> DATA SP theo SKU cần làm.</div>",
                 unsafe_allow_html=True)
     for m in ss.pop("flash", []) or []:
@@ -2005,8 +2005,6 @@ def khu_nap_nhanh(key: str = "nn") -> None:
     lan = ss.get(f"{key}_lan", 0)  # đổi khoá sau mỗi lần nạp -> ô chọn file / ô dán tự trống (không nạp lặp)
     fs = st.file_uploader("File (.xlsx / .xlsm / .csv) — chọn được nhiều file", type=["xlsx", "xlsm", "xls", "csv"],
                           accept_multiple_files=True, key=f"{key}_f{lan}")
-    txt = st.text_area("Hoặc dán bảng từ Excel (model / SKU / biến thể…, có hoặc không có dòng tiêu đề)",
-                       height=90, key=f"{key}_t{lan}", placeholder="219463\t\t4844439000045\n219464\tV2\t4844439000046")
     # ---- TỰ ĐIỀN TAY model / SKU / mã biến thể (không cần file) ----
     tay_txt = ""
     if st.checkbox("✍️ Tự điền tay model / SKU / mã biến thể (không cần file)", key=f"{key}_tay_on{lan}",
@@ -2080,8 +2078,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             st.caption(f"✍️ Đang có {len(_dong):,} dòng điền tay — bấm **Nạp vào tool** ở dưới để đưa vào IMPORT.")
         elif not _loi_tay:
             st.caption("Điền ít nhất **SKU hoặc ID CMS** ở 1 dòng thì mới nạp được.")
-    sig = (tuple((f.name, f.size) for f in fs or []) + ((hash(txt),) if txt.strip() else ())
-           + ((hash(tay_txt),) if tay_txt else ()))
+    sig = tuple((f.name, f.size) for f in fs or []) + ((hash(tay_txt),) if tay_txt else ())
     if not sig:
         return
     if ss.get(f"{key}_sig") != sig:
@@ -2092,10 +2089,6 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                     kq.append((f.name, C.nhan_dien_file(f.getvalue(), f.name)))
                 except Exception as e:  # noqa: BLE001
                     kq.append((f.name, {"loai": None, "loi": f"Không đọc được: {e}"}))
-            if txt.strip():
-                r = C.doc_mot_cuc(C.doc_text_dan(txt))
-                kq.append(("(bảng dán)", {"loai": "sku" if len(r["import"]) else None, **r,
-                                          "loi": None if len(r["import"]) else " ".join(r["ghi_chu"])}))
             if tay_txt:
                 r = C.doc_mot_cuc(C.doc_text_dan(tay_txt))
                 kq.append(("(điền tay)", {"loai": "sku" if len(r["import"]) else None, **r,
