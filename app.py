@@ -144,7 +144,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.10 · 2026-10-09"
+APP_VERSION = "web-4.11 · 2026-10-09"
 ss = st.session_state
 
 
@@ -2017,15 +2017,17 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         _che = st.radio("Cách nhập", ["📋 Dán theo cột (hàng loạt)", "⌨️ Bảng gõ tay"], horizontal=True,
                         key=f"{key}_tay_che{lan}", label_visibility="collapsed")
         _dong, _loi_tay = [], ""
+        _HD = "model_code\tsku\tvariant_code\tcategory_code\tPRODUCTID"
         if _che.startswith("📋"):
             st.caption("Copy 1 cột từ Excel rồi dán vào ô tương ứng — **mỗi dòng 1 giá trị, thứ tự dòng khớp nhau** "
-                       "(dòng thứ n của Model ↔ dòng thứ n của SKU ↔ dòng thứ n của Biến thể). Model / Mã ngành chỉ có "
-                       "**1 giá trị** thì tool áp cho tất cả SKU. Chỉ **SKU là bắt buộc**.")
-            _c3 = st.columns(4)
+                       "(dòng thứ n của ô này ↔ dòng thứ n của các ô kia). Model / Biến thể / Mã ngành chỉ có "
+                       "**1 giá trị** thì tool áp cho tất cả dòng. Mỗi dòng cần **SKU hoặc ID CMS** (SP chưa có SKU "
+                       "thì nhập **ID CMS = PRODUCTID** trong file CMS export; có cả hai cũng được).")
+            _c3 = st.columns(5)
             _cot = {}
-            for _col, _nhan, _k in zip(_c3, ("Model (model_code)", "SKU (bắt buộc)", "Mã biến thể (variant_code)",
-                                             "Mã ngành (category_code)"),
-                                       ("model_code", "sku", "variant_code", "category_code")):
+            for _col, _nhan, _k in zip(_c3, ("Model (model_code)", "SKU", "Mã biến thể (variant_code)",
+                                             "Mã ngành (category_code)", "ID CMS (PRODUCTID)"),
+                                       ("model_code", "sku", "variant_code", "category_code", "pid")):
                 with _col:
                     _cot[_k] = st.text_area(_nhan, height=170, key=f"{key}_tay_{_k}{lan}",
                                             placeholder="mỗi dòng 1 giá trị\n(dán cả cột từ Excel)")
@@ -2033,40 +2035,51 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             for k_ in _ds:  # bỏ dòng trống ở CUỐI (Excel hay dư 1 dòng), giữ dòng trống ở GIỮA để khỏi lệch hàng
                 while _ds[k_] and not _ds[k_][-1]:
                     _ds[k_].pop()
-            _sk = _ds["sku"]
-            _n = len(_sk)
-            for k_, ten_ in (("model_code", "Model"), ("variant_code", "Mã biến thể"), ("category_code", "Mã ngành")):
+            _sk, _pd = _ds["sku"], _ds["pid"]
+            _n = max(len(_sk), len(_pd))
+            for k_, ten_ in (("sku", "SKU"), ("pid", "ID CMS")):  # SKU / ID: để trống cả ô hoặc ĐỦ số dòng
                 _m = len(_ds[k_])
-                if _m > 1 and _m != _n:
-                    _loi_tay = (f"{ten_} có {_m:,} dòng nhưng SKU có {_n:,} dòng — số dòng phải BẰNG nhau (hoặc {ten_} "
-                                f"chỉ 1 giá trị cho tất cả). Chưa nạp để khỏi lệch hàng.")
+                if _m and _m != _n:
+                    _loi_tay = (f"{ten_} có {_m:,} dòng nhưng số dòng lớn nhất là {_n:,} — SKU và ID CMS phải có CÙNG số "
+                                f"dòng (hoặc để trống cả ô). Chưa nạp để khỏi lệch hàng.")
                     break
+            if not _loi_tay:
+                for k_, ten_ in (("model_code", "Model"), ("variant_code", "Mã biến thể"),
+                                 ("category_code", "Mã ngành")):
+                    _m = len(_ds[k_])
+                    if _m > 1 and _m != _n:
+                        _loi_tay = (f"{ten_} có {_m:,} dòng nhưng SKU/ID có {_n:,} dòng — số dòng phải BẰNG nhau (hoặc "
+                                    f"{ten_} chỉ 1 giá trị cho tất cả). Chưa nạp để khỏi lệch hàng.")
+                        break
             if _loi_tay:
                 st.error(_loi_tay)
             elif _n:
                 def _lay(k_, i_):
                     v_ = _ds[k_]
                     return v_[0] if len(v_) == 1 else (v_[i_] if i_ < len(v_) else "")
-                for _i, _s in enumerate(_sk):
-                    if _s:
+                for _i in range(_n):
+                    _s = _sk[_i] if _i < len(_sk) else ""
+                    _p = _pd[_i] if _i < len(_pd) else ""
+                    if _s or _p:
                         _dong.append("\t".join([_lay("model_code", _i), _s, _lay("variant_code", _i),
-                                                 _lay("category_code", _i) or cate_mac.strip()]))
+                                                 _lay("category_code", _i) or cate_mac.strip(), _p]))
         else:
             _cau = {c_: st.column_config.TextColumn(c_) for c_ in ("model_code", "sku", "variant_code", "category_code")}
-            _cau["sku"] = st.column_config.TextColumn("sku (bắt buộc)")
-            _tay = st.data_editor(pd.DataFrame([["", "", "", ""]] * 4,
-                                               columns=["model_code", "sku", "variant_code", "category_code"]),
+            _cau["PRODUCTID"] = st.column_config.TextColumn("ID CMS (PRODUCTID)")
+            _tay = st.data_editor(pd.DataFrame([["", "", "", "", ""]] * 4,
+                                               columns=["model_code", "sku", "variant_code", "category_code",
+                                                        "PRODUCTID"]),
                                   num_rows="dynamic", hide_index=True, width="stretch", column_config=_cau,
                                   key=f"{key}_tay{lan}")
             for _r in _tay.fillna("").astype(str).itertuples(index=False):
-                if _r.sku.strip():
+                if _r.sku.strip() or _r.PRODUCTID.strip():
                     _dong.append("\t".join([_r.model_code.strip(), _r.sku.strip(), _r.variant_code.strip(),
-                                            (_r.category_code.strip() or cate_mac.strip())]))
+                                            (_r.category_code.strip() or cate_mac.strip()), _r.PRODUCTID.strip()]))
         if _dong:
-            tay_txt = "model_code\tsku\tvariant_code\tcategory_code\n" + "\n".join(_dong)
+            tay_txt = _HD + "\n" + "\n".join(_dong)
             st.caption(f"✍️ Đang có {len(_dong):,} dòng điền tay — bấm **Nạp vào tool** ở dưới để đưa vào IMPORT.")
         elif not _loi_tay:
-            st.caption("Điền ít nhất **SKU** thì mới nạp được.")
+            st.caption("Điền ít nhất **SKU hoặc ID CMS** ở 1 dòng thì mới nạp được.")
     sig = (tuple((f.name, f.size) for f in fs or []) + ((hash(txt),) if txt.strip() else ())
            + ((hash(tay_txt),) if tay_txt else ()))
     if not sig:
@@ -2098,11 +2111,16 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         elif r.get("loai") == "cms":
             d = r.get("data_sp")
             nd = f"{len(d):,} dòng · {d.PRODUCTCODE.nunique():,} SKU" if d is not None and len(d) else ""
+            if d is not None and len(d):
+                _n_id = d.PRODUCTCODE.astype(str).str.startswith(C.ID_TIEN_TO).sum()
+                if _n_id:
+                    nd += f" · gồm {d.loc[d.PRODUCTCODE.astype(str).str.startswith(C.ID_TIEN_TO), 'PRODUCTID'].nunique():,} SP chưa có code (khớp theo ID CMS)"
         elif r.get("loai") == "nganh":
             nd = " · ".join(f"{v['ten']} ({c}): {len(v['cot'])} cột" for c, v in r["cau_hinh"].items())
         elif r.get("loai") == "sku":
             nd = (f"{len(r['import']):,} SKU · {(r['import'].model_code != '').sum():,} có model · "
-                  f"{(r['import'].variant_code != '').sum():,} có biến thể · {len(r['spec']):,} ô TSKT/FILTER")
+                  f"{(r['import'].variant_code != '').sum():,} có biến thể · {len(r['spec']):,} ô TSKT/FILTER"
+                  + (f" · {r['so_chi_id']:,} dòng chỉ có ID CMS" if r.get("so_chi_id") else ""))
         else:
             nd = ""
         tom.append({"File": ten, "Nhận là": C.LOAI_FILE.get(r.get("loai"), "❌ không nhận ra"), "Nội dung": nd,
@@ -2287,6 +2305,21 @@ def khu_nap_nhanh(key: str = "nn") -> None:
         cu = ss.data_sp.astype(object) if ghi_sp == "Nối thêm" and len(ss.data_sp) else ss.data_sp.iloc[0:0]
         ss.data_sp = pd.concat([cu, moi], ignore_index=True).drop_duplicates(ignore_index=True)
         phan.append("data_sp")
+    # Dòng nhập theo ID CMS: khai cả SKU lẫn ID -> đổi mã tạm ID_<PRODUCTID> trong DATA SP sang SKU thật
+    _ghep = {}
+    for _t, r in kq:
+        if r.get("loai") == "sku" and r.get("ghep_id"):
+            _ghep.update(r["ghep_id"])
+    if _ghep:
+        ss["ghep_id"] = {**ss.get("ghep_id", {}), **_ghep}
+    if len(ss.data_sp) and (ss.get("ghep_id") or (len(ss["import"]) and ss["import"].sku.astype(str)
+                                                  .str.startswith(C.ID_TIEN_TO).any())):
+        _sp_g, _n_g = C.gan_id_data_sp(ss.data_sp, ss.get("ghep_id", {}), set(ss["import"].sku))
+        if _n_g:
+            ss.data_sp = _sp_g
+            bao.append(f"đã gắn {_n_g:,} dòng DATA SP theo ID CMS vào SKU")
+            if "data_sp" not in phan:
+                phan.append("data_sp")
     if loc and len(ss["import"]) and len(ss.data_sp):
         _data_sp_truoc = ss.data_sp.copy()
         _loc_kq, tk = C.loc_data_sp(ss.data_sp.astype(object), ss["import"])
@@ -2314,6 +2347,14 @@ def khu_nap_nhanh(key: str = "nn") -> None:
     if "data_sp" in phan:
         ss.data_sp = C.nen_df(ss.data_sp)
         bao.append(f"DATA SP {len(ss.data_sp):,} dòng")
+    if len(ss["import"]) and len(ss.data_sp):  # dòng nhập theo ID mà DATA SP không có PRODUCTID đó -> báo rõ
+        _id_imp = ss["import"].sku[ss["import"].sku.astype(str).str.startswith(C.ID_TIEN_TO)]
+        if len(_id_imp):
+            _co = set(ss.data_sp.PRODUCTCODE.astype(object).unique())
+            _thieu = [x[len(C.ID_TIEN_TO):] for x in _id_imp if x not in _co]
+            if _thieu:
+                bao.append(f"⚠️ {len(_thieu):,}/{len(_id_imp):,} dòng nhập theo ID CMS KHÔNG thấy trong DATA SP "
+                           f"(ID: {', '.join(_thieu[:5])}{'…' if len(_thieu) > 5 else ''}) — kiểm tra ID hoặc nạp file CMS export đúng")
     if da_ng:
         bao.insert(0, "Cấu hình ngành " + "; ".join(da_ng))
         if not phan:

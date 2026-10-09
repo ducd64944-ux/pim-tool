@@ -516,7 +516,8 @@ TEN_COT: Dict[str, List[str]] = {
     "variant_code": ["variant_code", "Mã biến thể", "Biến thể", "variant", "variantcode"],
     "family_variant_code": ["family_variant_code", "Mã họ biến thể", "Họ biến thể", "familyvariantcode"],
     "category_code": ["category_code", "Mã danh mục PIM", "Danh mục PIM", "Mã danh mục", "categorycode"],
-    "PRODUCTID": ["PRODUCTID", "product id", "Mã sản phẩm CMS", "ID sản phẩm"],
+    "PRODUCTID": ["PRODUCTID", "product id", "product_id", "Mã sản phẩm CMS", "ID sản phẩm", "ID CMS", "ID model",
+                  "ID biến thể"],
     "PRODUCTCODE": ["PRODUCTCODE", "product code", "Mã ERP", "Mã sản phẩm ERP", "sku"],
     "PRODUCTNAME": ["PRODUCTNAME", "product name", "Tên sản phẩm", "Tên SP"],
     "PROPERTYID": ["PROPERTYID", "property id", "Mã thuộc tính", "Mã thuộc tính CMS", "ID thuộc tính"],
@@ -524,6 +525,13 @@ TEN_COT: Dict[str, List[str]] = {
     "PROPVALUE": ["PROPVALUE", "prop value", "PROPERTYVALUE", "Giá trị", "Giá trị thuộc tính", "value"],
     "CATEGORYID": ["CATEGORYID", "category id", "Mã ngành hàng", "Mã ngành hàng CMS", "Mã ngành", "ID ngành hàng"],
 }
+
+
+ID_TIEN_TO = "ID_"  # SP CMS CHƯA có PRODUCTCODE (SKU) -> mã tạm "ID_<PRODUCTID>" để đi qua pipeline như 1 SKU thường
+
+
+def sku_tu_id(pid) -> str:
+    return ID_TIEN_TO + chuan_hoa_id(pid)
 
 
 def _tim_cot(header: List[str], *ten: str) -> int:
@@ -541,9 +549,11 @@ def tim_cot_truong(header: List[str], truong: str) -> int:
     return _tim_cot(header, *TEN_COT.get(truong, [truong]))
 
 
-def doc_cms_export(data: bytes, ten_file: str) -> Tuple[pd.DataFrame, Optional[str]]:
+def doc_cms_export(data: bytes, ten_file: str, giu_khong_code: bool = False) -> Tuple[pd.DataFrame, Optional[str]]:
     """File CMS export (cột PRODUCTID/PRODUCTCODE/.../PROPVALUE/CATEGORYID,
-    nhận diện theo TÊN, không phụ thuộc thứ tự) -> DataFrame DATA SP."""
+    nhận diện theo TÊN, không phụ thuộc thứ tự) -> DataFrame DATA SP.
+    giu_khong_code=True: dòng KHÔNG có PRODUCTCODE nhưng có PRODUCTID được giữ với mã tạm ID_<PRODUCTID> (để nhập
+    theo ID CMS); mặc định False = như cũ (bỏ dòng không có mã)."""
     so = SoExcel(data, ten_file)
     # file mẫu nhiều sheet (IMPORT đứng đầu): ưu tiên sheet "DATA SP", không thì sheet đầu tiên có cột PRODUCTCODE
     thu = (["DATA SP"] if "DATA SP" in so.sheets else []) + [x for x in so.sheets if x != "DATA SP"]
@@ -576,7 +586,9 @@ def doc_cms_export(data: bytes, ten_file: str) -> Tuple[pd.DataFrame, Optional[s
             return r[i] if 0 <= i < len(r) else None
         code = chuan_hoa_code(g("PRODUCTCODE"))
         if not code:
-            continue
+            if not (giu_khong_code and chuan_hoa_id(g("PRODUCTID"))):
+                continue
+            code = sku_tu_id(g("PRODUCTID"))
         out.append([chuan_hoa_id(g("PRODUCTID")), code, chuan_hoa_key(g("PRODUCTNAME")),
                     chuan_hoa_id(g("PROPERTYID")), chuan_hoa_key(g("PROPERTYNAME")),
                     chuan_hoa_key(g("PROPVALUE")), chuan_hoa_id(g("CATEGORYID"))])
@@ -684,17 +696,20 @@ def doc_mot_cuc(rows: List[list]) -> dict:
     rows = [r + [None] * (n - len(r)) for r in rows]
     vt, hang_tieu_de = {}, -1
     for i in range(min(3, len(rows))):
-        j = tim_cot_truong([ep_text(x) for x in rows[i]], "sku")
-        if j >= 0:
+        hh = [ep_text(x) for x in rows[i]]
+        j, jp = tim_cot_truong(hh, "sku"), tim_cot_truong(hh, "PRODUCTID")
+        if j >= 0 or jp >= 0:  # có cột SKU và/hoặc cột ID CMS (PRODUCTID) — SP chưa có SKU thì nhập theo ID
             hang_tieu_de = i
-            vt = {f: tim_cot_truong([ep_text(x) for x in rows[i]], f) for f in ("sku", "model_code", "variant_code",
-                                                                                 "category_code", "family_variant_code")}
+            vt = {f: tim_cot_truong(hh, f) for f in ("sku", "model_code", "variant_code", "category_code",
+                                                      "family_variant_code")}
+            vt["pid"] = jp
             break
     if hang_tieu_de >= 0:
         h1 = [chuan_hoa_key(x) for x in rows[hang_tieu_de]]
         bd = hang_tieu_de + 1
         h2 = [""] * n
-        if bd < len(rows) and _la_dong_ten_vn(rows[bd], vt["sku"]):
+        if bd < len(rows) and _la_dong_ten_vn(rows[bd], vt["sku"]) and (vt.get("pid", -1) < 0
+                                                                       or _la_dong_ten_vn(rows[bd], vt["pid"])):
             h2 = [chuan_hoa_key(x) for x in rows[bd]]
             bd += 1
         data = rows[bd:]
@@ -730,12 +745,20 @@ def doc_mot_cuc(rows: List[list]) -> dict:
     cot_spec = [(j, h1[j], h2[j]) for j in range(n) if j not in co_dinh and h1[j] and _MA_COT_RE.match(h1[j])
                 and h1[j].lower() not in COT_KHONG_PHAI_SPEC]
     imp, spec, seen, trung = [], [], set(), 0
+    ghep, n_id = {}, 0  # ghep: {PRODUCTID: sku thật} cho dòng có CẢ SKU lẫn ID; n_id: dòng chỉ có ID
     for r in data:
         def g(f):
             j = vt.get(f, -1)
             return chuan_hoa_key(r[j]) if j >= 0 else ""
-        sku = chuan_hoa_code(g("sku"))
-        if not sku or not _MA_RE.match(sku):
+        sku, pid = chuan_hoa_code(g("sku")), chuan_hoa_id(g("pid"))
+        if sku:
+            if not _MA_RE.match(sku):
+                continue
+            if pid and _MA_RE.match(pid):
+                ghep[pid] = sku
+        elif pid and _MA_RE.match(pid):
+            sku, n_id = sku_tu_id(pid), n_id + 1
+        else:
             continue
         if sku in seen:
             trung += 1
@@ -751,6 +774,10 @@ def doc_mot_cuc(rows: List[list]) -> dict:
                 spec.append([sku, model, cate, variant, code, ten, v])
     out["import"] = pd.DataFrame(imp, columns=COT_IMPORT)
     out["spec"] = pd.DataFrame(spec, columns=COT_SPEC)
+    out["ghep_id"], out["so_chi_id"] = ghep, n_id
+    if n_id:
+        out["ghi_chu"].append(f"{n_id} dòng chỉ có ID CMS (chưa có SKU) -> dùng mã tạm {ID_TIEN_TO}<ID> để khớp DATA SP "
+                              f"theo PRODUCTID (cần file CMS export có đúng PRODUCTID đó).")
     if trung:
         out["ghi_chu"].append(f"Bỏ {trung} dòng trùng SKU (giữ dòng đầu).")
     if n_mau:
@@ -2900,7 +2927,7 @@ def nhan_dien_file(data: bytes, ten_file: str) -> dict:
             continue
         h = [ep_text(x) for x in rows[0]]
         if tim_cot_truong(h, "PROPERTYID") >= 0 and tim_cot_truong(h, "PROPVALUE") >= 0:
-            df, loi = doc_cms_export(data, ten_file)
+            df, loi = doc_cms_export(data, ten_file, giu_khong_code=True)
             return {"loai": "cms", "data_sp": df, "loi": loi, "sheet": sh}
         n = max(len(x) for x in rows[:50])
         if 6 <= n <= 8 and len(rows) > 2:  # CMS export KHÔNG tiêu đề / tiêu đề lạ: cột D số (PROPERTYID), F giá trị
@@ -2908,7 +2935,7 @@ def nhan_dien_file(data: bytes, ten_file: str) -> dict:
             so_d = sum(bool(re.fullmatch(r"\d+", chuan_hoa_id(x[3]))) for x in mau if len(x) > 5)
             co_f = sum(bool(chuan_hoa_key(x[5])) for x in mau if len(x) > 5)
             if so_d >= 0.8 * len(mau) and co_f >= 0.5 * len(mau):
-                df, loi = doc_cms_export(data, ten_file)
+                df, loi = doc_cms_export(data, ten_file, giu_khong_code=True)
                 if not loi:
                     return {"loai": "cms", "data_sp": df, "loi": None, "sheet": sh,
                             "ghi_chu": ["Không nhận ra tiêu đề — đọc theo vị trí cột như desktop (A..G)."]}
@@ -2919,6 +2946,32 @@ def nhan_dien_file(data: bytes, ten_file: str) -> dict:
             r["goi_y_cfg"] = {"cate_id": cate_gy, "cot": cot_gy}
             return {"loai": "sku", **r, "sheet": sh}
     return {"loai": None, "loi": "Không nhận ra loại file (cần: workspace mẫu / CMS export / danh sách SKU)."}
+
+
+def gan_id_data_sp(data_sp: pd.DataFrame, ghep: Dict[str, str], imp_skus=()) -> Tuple[pd.DataFrame, int]:
+    """Khớp DATA SP theo ID CMS (PRODUCTID). Dòng nhập theo ID:
+      * chỉ có ID  -> IMPORT có sku tạm ID_<PRODUCTID>: dòng DATA SP của PRODUCTID đó đổi PRODUCTCODE sang mã tạm;
+      * có cả SKU lẫn ID (ghep {PRODUCTID: sku}) -> dòng DATA SP của PRODUCTID đó đổi sang SKU người dùng khai.
+    Dòng DATA SP mà PRODUCTCODE hiện tại chính là 1 SKU khác trong IMPORT thì GIỮ NGUYÊN (không cướp SKU).
+    -> (DATA SP, số dòng đã đổi). Không đổi gì thì trả nguyên bảng."""
+    if data_sp is None or not len(data_sp):
+        return data_sp, 0
+    anh = {p: s for p, s in (ghep or {}).items() if p and s}
+    imp_skus = set(imp_skus)
+    for x in imp_skus:
+        if isinstance(x, str) and x.startswith(ID_TIEN_TO) and len(x) > len(ID_TIEN_TO):
+            anh.setdefault(x[len(ID_TIEN_TO):], x)
+    if not anh:
+        return data_sp, 0
+    code = data_sp.PRODUCTCODE.astype(object)
+    dich = data_sp.PRODUCTID.astype(object).map(anh)
+    can = dich.notna() & (dich != code) & ~code.isin(imp_skus)
+    n = int(can.sum())
+    if not n:
+        return data_sp, 0
+    out = data_sp.copy()
+    out["PRODUCTCODE"] = code.where(~can, dich)
+    return out, n
 
 
 def loc_data_sp(data_sp: pd.DataFrame, imp: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
