@@ -109,8 +109,12 @@ def test_giong_desktop():
                                     and "tskt" not in (hdr[j] or "") else c for j, c in enumerate(row)] for row in d[k][2:]]
         assert dk == w[k], f"{k}\nDESKTOP {dk}\nWEB     {w[k]}"
     assert any("215361,215363" in str(row) for rows in w.values() for row in rows)
-    assert not any(", " in str(c) and "filter" in (rows[0][j] or "") and "tskt" not in (rows[0][j] or "")
-                   for rows in w.values() for row in rows[2:] for j, c in enumerate(row) if c)
+    # ô FILTER chỉ gồm SỐ cách nhau đúng 1 dấu phẩy: không khoảng trắng nào (PIM không cắt khoảng trắng)
+    for rows in w.values():
+        for row in rows[2:]:
+            for j, c in enumerate(row):
+                if c and "filter" in (rows[0][j] or "") and "tskt" not in (rows[0][j] or ""):
+                    assert re.fullmatch(r"\d+(,\d+)*", c), f"FILTER có khoảng trắng/ký tự lạ: {c!r}"
     lg = {x[3].split(" — ")[0] for x in r["log"]}
     assert "CATEGORYID không tồn tại trong mapping" in lg and "Không có tab TSKT lẫn cấu hình" in lg
 

@@ -128,7 +128,7 @@ elif _LOGO.exists():
 import importlib as _il  # noqa: E402
 import sys as _sys  # noqa: E402
 
-_CORE_CAN = "2026-10-09.3"  # phải khớp pim_core.CORE_VERSION; đổi cả 2 nơi mỗi khi pim_core thêm hàm/hằng mới
+_CORE_CAN = "2026-10-09.4"  # phải khớp pim_core.CORE_VERSION; đổi cả 2 nơi mỗi khi pim_core thêm hàm/hằng mới
 
 
 def _bao_dam_module_moi() -> None:
@@ -173,7 +173,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.18 · 2026-10-09"
+APP_VERSION = "web-4.19 · 2026-10-09"
 ss = st.session_state
 
 

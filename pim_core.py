@@ -59,11 +59,29 @@ SEP_TSKT = "|"
 SEP_FILTER = ", "
 
 
+_KHOANG_TRANG_RE = re.compile(r"[\s\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+")
+_KY_TU_AN_RE = re.compile(r"[\u200b-\u200d\u2060\ufeff]")  # rộng 0: xoá hẳn (không tách "3​3" thành 3,3)
+
+
 def gon_filter_khi_xuat(v: str) -> str:
-    """CHỈ khi ghi file import: nhiều mã FILTER viết sát dấu phẩy, vd "25, 30" -> "25,30".
-    PIM nhận mã sau dấu phẩy KHÔNG cắt khoảng trắng: " 30" không khớp option 30 (chỉ hiện số, không tick).
+    """CHỈ khi ghi file import: ô FILTER chỉ gồm MÃ SỐ cách nhau đúng 1 dấu phẩy, KHÔNG khoảng trắng nào
+    ("25, 30" / " 25 ,30 " / "25\u00a0,30" -> "25,30"; " 33 " -> "33"; bỏ phần tử rỗng ",,").
+    PIM không cắt khoảng trắng quanh dấu phẩy: " 30" không khớp option 30 (chỉ hiện số, không tick).
+    Phần tử là chữ (lỗi, đã có cảnh báo riêng) chỉ cắt 2 đầu, không đụng chữ bên trong.
     Bên trong tool vẫn dùng SEP_FILTER như desktop để map/so sánh/quy tắc không đổi."""
-    return re.sub(r"\s*,\s*", ",", v).strip(",") if v and "," in v else v
+    if not v:
+        return v
+    out: List[str] = []
+    for it in str(v).replace("，", ",").split(","):
+        it = _KHOANG_TRANG_RE.sub(" ", _KY_TU_AN_RE.sub("", it)).strip()
+        if not it:
+            continue
+        tok = it.split(" ")
+        if len(tok) > 1 and all(re.fullmatch(r"\d+", t) for t in tok):
+            out.extend(tok)  # "25 30" (cách nhau bằng khoảng trắng) -> 25,30
+        else:
+            out.append(it)
+    return ",".join(out)
 
 
 def ep_text(v) -> str:
@@ -534,7 +552,7 @@ TEN_COT: Dict[str, List[str]] = {
 }
 
 
-CORE_VERSION = "2026-10-09.3"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
+CORE_VERSION = "2026-10-09.4"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
 ID_TIEN_TO = "ID_"  # SP CMS CHƯA có PRODUCTCODE (SKU) -> mã tạm "ID_<PRODUCTID>" để đi qua pipeline như 1 SKU thường
 
 
@@ -2116,7 +2134,7 @@ def xuat_file_import(bang: Dict[str, dict], imp: pd.DataFrame, sua: dict, don_vi
                 if loai:
                     dem[{"sua": "so_o_sua", "dv": "so_o_dv", "bd": "so_o_bd"}.get(loai, "so_o_rong")] += 1
                 if v and la_cot_filter(c):
-                    v = gon_filter_khi_xuat(v)  # 25, 30 -> 25,30 (PIM không cắt khoảng trắng sau dấu phẩy)
+                    v = gon_filter_khi_xuat(v)  # 25, 30 -> 25,30 · không khoảng trắng nào (PIM không cắt khoảng trắng)
                 out.append(v)
             if bo_dong_trong and not any(v for c, v in zip(cot, out) if c not in ("model_code", "sku", "variant_code")):
                 dem["bo_trong"] += 1
