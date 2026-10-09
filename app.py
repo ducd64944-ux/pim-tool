@@ -144,7 +144,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.9 · 2026-10-08"
+APP_VERSION = "web-4.10 · 2026-10-09"
 ss = st.session_state
 
 
@@ -2021,10 +2021,11 @@ def khu_nap_nhanh(key: str = "nn") -> None:
             st.caption("Copy 1 cột từ Excel rồi dán vào ô tương ứng — **mỗi dòng 1 giá trị, thứ tự dòng khớp nhau** "
                        "(dòng thứ n của Model ↔ dòng thứ n của SKU ↔ dòng thứ n của Biến thể). Model / Mã ngành chỉ có "
                        "**1 giá trị** thì tool áp cho tất cả SKU. Chỉ **SKU là bắt buộc**.")
-            _c3 = st.columns(3)
+            _c3 = st.columns(4)
             _cot = {}
-            for _col, _nhan, _k in zip(_c3, ("Model (model_code)", "SKU (bắt buộc)", "Mã biến thể (variant_code)"),
-                                       ("model_code", "sku", "variant_code")):
+            for _col, _nhan, _k in zip(_c3, ("Model (model_code)", "SKU (bắt buộc)", "Mã biến thể (variant_code)",
+                                             "Mã ngành (category_code)"),
+                                       ("model_code", "sku", "variant_code", "category_code")):
                 with _col:
                     _cot[_k] = st.text_area(_nhan, height=170, key=f"{key}_tay_{_k}{lan}",
                                             placeholder="mỗi dòng 1 giá trị\n(dán cả cột từ Excel)")
@@ -2034,7 +2035,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                     _ds[k_].pop()
             _sk = _ds["sku"]
             _n = len(_sk)
-            for k_, ten_ in (("model_code", "Model"), ("variant_code", "Mã biến thể")):
+            for k_, ten_ in (("model_code", "Model"), ("variant_code", "Mã biến thể"), ("category_code", "Mã ngành")):
                 _m = len(_ds[k_])
                 if _m > 1 and _m != _n:
                     _loi_tay = (f"{ten_} có {_m:,} dòng nhưng SKU có {_n:,} dòng — số dòng phải BẰNG nhau (hoặc {ten_} "
@@ -2049,7 +2050,7 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                 for _i, _s in enumerate(_sk):
                     if _s:
                         _dong.append("\t".join([_lay("model_code", _i), _s, _lay("variant_code", _i),
-                                                 cate_mac.strip()]))
+                                                 _lay("category_code", _i) or cate_mac.strip()]))
         else:
             _cau = {c_: st.column_config.TextColumn(c_) for c_ in ("model_code", "sku", "variant_code", "category_code")}
             _cau["sku"] = st.column_config.TextColumn("sku (bắt buộc)")
