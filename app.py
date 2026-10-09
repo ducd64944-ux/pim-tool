@@ -128,7 +128,7 @@ elif _LOGO.exists():
 import importlib as _il  # noqa: E402
 import sys as _sys  # noqa: E402
 
-_CORE_CAN = "2026-10-09.1"  # phải khớp pim_core.CORE_VERSION; đổi cả 2 nơi mỗi khi pim_core thêm hàm/hằng mới
+_CORE_CAN = "2026-10-09.2"  # phải khớp pim_core.CORE_VERSION; đổi cả 2 nơi mỗi khi pim_core thêm hàm/hằng mới
 
 
 def _bao_dam_module_moi() -> None:
@@ -173,7 +173,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.15 · 2026-10-09"
+APP_VERSION = "web-4.16 · 2026-10-09"
 ss = st.session_state
 
 
@@ -2104,37 +2104,13 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                 with _col:
                     _cot[_k] = st.text_area(_nhan, height=170, key=f"{key}_tay_{_k}{lan}",
                                             placeholder="mỗi dòng 1 giá trị\n(dán cả cột từ Excel)")
-            _ds = {k_: [x.strip() for x in v.replace("\r", "").split("\n")] for k_, v in _cot.items()}
-            for k_ in _ds:  # bỏ dòng trống ở CUỐI (Excel hay dư 1 dòng), giữ dòng trống ở GIỮA để khỏi lệch hàng
-                while _ds[k_] and not _ds[k_][-1]:
-                    _ds[k_].pop()
-            _sk, _pd = _ds["sku"], _ds["pid"]
-            _n = max(len(_sk), len(_pd))
-            for k_, ten_ in (("sku", "SKU"), ("pid", "ID CMS")):  # SKU / ID: để trống cả ô hoặc ĐỦ số dòng
-                _m = len(_ds[k_])
-                if _m and _m != _n:
-                    _loi_tay = (f"{ten_} có {_m:,} dòng nhưng số dòng lớn nhất là {_n:,} — SKU và ID CMS phải có CÙNG số "
-                                f"dòng (hoặc để trống cả ô). Chưa nạp để khỏi lệch hàng.")
-                    break
-            if not _loi_tay:
-                for k_, ten_ in (("model_code", "Model"), ("variant_code", "Mã biến thể")):
-                    _m = len(_ds[k_])
-                    if _m > 1 and _m != _n:
-                        _loi_tay = (f"{ten_} có {_m:,} dòng nhưng SKU/ID có {_n:,} dòng — số dòng phải BẰNG nhau (hoặc "
-                                    f"{ten_} chỉ 1 giá trị cho tất cả). Chưa nạp để khỏi lệch hàng.")
-                        break
+            _rows, _ghi, _loi_tay = C.ghep_cot_dan(_cot, cate_mac)
             if _loi_tay:
                 st.error(_loi_tay)
-            elif _n:
-                def _lay(k_, i_):
-                    v_ = _ds[k_]
-                    return v_[0] if len(v_) == 1 else (v_[i_] if i_ < len(v_) else "")
-                for _i in range(_n):
-                    _s = _sk[_i] if _i < len(_sk) else ""
-                    _p = _pd[_i] if _i < len(_pd) else ""
-                    if _s or _p:
-                        _dong.append("\t".join([_lay("model_code", _i), _s, _lay("variant_code", _i),
-                                                 cate_mac.strip(), _p]))
+            else:
+                for _g_ in _ghi:
+                    (st.warning if _g_.startswith("⚠️") else st.caption)(_g_)
+                _dong = ["\t".join(_r_) for _r_ in _rows]
         else:
             _cau = {c_: st.column_config.TextColumn(c_) for c_ in ("model_code", "sku", "variant_code", "category_code")}
             _cau["PRODUCTID"] = st.column_config.TextColumn("ID CMS (PRODUCTID)")
@@ -2165,6 +2141,10 @@ def khu_nap_nhanh(key: str = "nn") -> None:
                     kq.append((f.name, {"loai": None, "loi": f"Không đọc được: {e}"}))
             if tay_txt:
                 r = C.doc_mot_cuc(C.doc_text_dan(tay_txt))
+                _nd = tay_txt.count("\n")
+                if len(r["import"]) < _nd:
+                    r["ghi_chu"].append(f"Nhận {len(r['import']):,}/{_nd:,} dòng — dòng trùng SKU/ID hoặc có ký tự không "
+                                        f"hợp lệ bị bỏ.")
                 kq.append(("(điền tay)", {"loai": "sku" if len(r["import"]) else None, **r,
                                           "loi": None if len(r["import"]) else " ".join(r["ghi_chu"])}))
         ss[f"{key}_sig"], ss[f"{key}_kq"], ss[f"{key}_giay"] = sig, kq, time.time() - t

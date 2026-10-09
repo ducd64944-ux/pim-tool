@@ -527,7 +527,7 @@ TEN_COT: Dict[str, List[str]] = {
 }
 
 
-CORE_VERSION = "2026-10-09.1"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
+CORE_VERSION = "2026-10-09.2"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
 ID_TIEN_TO = "ID_"  # SP CMS CHƯA có PRODUCTCODE (SKU) -> mã tạm "ID_<PRODUCTID>" để đi qua pipeline như 1 SKU thường
 
 
@@ -790,6 +790,66 @@ def doc_mot_cuc(rows: List[list]) -> dict:
     if not imp:
         out["ghi_chu"].append("Không có SKU hợp lệ nào.")
     return out
+
+
+def ghep_cot_dan(cot: Dict[str, str], cate: str = "") -> Tuple[List[List[str]], List[str], str]:
+    """Ô DÁN THEO CỘT (Model / SKU / Mã biến thể / ID CMS — mỗi ô 1 cột copy từ Excel/Sheets) -> các dòng
+    [model_code, sku, variant_code, category_code, PRODUCTID], danh sách GHI CHÚ (thông tin) và LỖI (chặn nạp, "" nếu ổn).
+    Quy tắc (khớp theo THỨ TỰ DÒNG):
+      * dòng trống ở CUỐI mỗi ô bị bỏ; ô ngắn hơn ô dài nhất thì phần thiếu = để trống (vd SKU 4 dòng, ID 9 dòng ->
+        5 dòng cuối chỉ có ID — đúng cảnh sản phẩm chưa có SKU);
+      * Model / Biến thể chỉ có 1 giá trị -> áp cho TẤT CẢ dòng;
+      * SKU và ID KHÔNG bao giờ nhân bản; dòng không có cả SKU lẫn ID thì bỏ (báo số dòng bỏ);
+      * tự bỏ dòng tiêu đề nếu lỡ copy cả tiêu đề; ô có Tab (dán nhiều cột vào 1 ô) -> lỗi, không đoán."""
+    ten = {"model_code": "Model", "sku": "SKU", "variant_code": "Mã biến thể", "pid": "ID CMS"}
+    ds: Dict[str, List[str]] = {}
+    for k in ten:
+        v = (cot.get(k) or "").replace("\r", "")
+        if "\t" in v:
+            return [], [], (f"Ô «{ten[k]}» có nhiều cột (có dấu Tab) — mỗi ô chỉ dán ĐÚNG 1 cột. "
+                           f"Muốn dán cả bảng nhiều cột thì chọn «Bảng gõ tay» hoặc nạp file.")
+        ln = [x.strip().strip('"').strip() for x in v.split("\n")]
+        while ln and not ln[-1]:
+            ln.pop()
+        ds[k] = ln
+    ghi_chu: List[str] = []
+    for k, ln in ds.items():  # dòng tiêu đề lỡ copy
+        if ln and not re.fullmatch(r"[0-9.]+", ln[0]) and tim_cot_truong([ln[0]], "PRODUCTID" if k == "pid" else k) >= 0:
+            for k2 in ds:
+                ds[k2] = ds[k2][1:] if ds[k2] else ds[k2]
+            ghi_chu.append("Đã bỏ dòng tiêu đề ở đầu các ô.")
+            break
+    n = max((len(v) for v in ds.values()), default=0)
+    if not n:
+        return [], ghi_chu, ""
+    cot_ok: Dict[str, List[str]] = {}
+    for k, ln in ds.items():
+        if k in ("model_code", "variant_code") and len(ln) == 1 and n > 1:
+            cot_ok[k] = ln * n
+            ghi_chu.append(f"{ten[k]} chỉ có 1 giá trị «{ln[0]}» → áp cho cả {n:,} dòng.")
+        else:
+            if ln and len(ln) < n:
+                ghi_chu.append(f"{ten[k]} có {len(ln):,}/{n:,} dòng → {n - len(ln):,} dòng cuối để trống {ten[k]}.")
+            cot_ok[k] = ln + [""] * (n - len(ln))
+    rows, bo = [], 0
+    for i in range(n):
+        s, p = cot_ok["sku"][i], cot_ok["pid"][i]
+        if not (s or p):
+            bo += bool(cot_ok["model_code"][i] or cot_ok["variant_code"][i])
+            continue
+        rows.append([cot_ok["model_code"][i], s, cot_ok["variant_code"][i], (cate or "").strip(), p])
+    if bo:
+        ghi_chu.append(f"⚠️ {bo:,} dòng có Model/Biến thể nhưng KHÔNG có SKU lẫn ID CMS → bị bỏ (kiểm tra thứ tự dòng).")
+    sk = [r[1] for r in rows if r[1]]
+    pi = [r[4] for r in rows if r[4]]
+    if len(sk) != len(set(sk)):
+        ghi_chu.append(f"⚠️ {len(sk) - len(set(sk)):,} SKU bị lặp (chỉ giữ dòng đầu).")
+    if len(pi) != len(set(pi)):
+        ghi_chu.append(f"⚠️ {len(pi) - len(set(pi)):,} ID CMS bị lặp.")
+    xau = [x for x in pi if not re.fullmatch(r"\d+(\.0+)?", x)]
+    if xau:
+        ghi_chu.append(f"⚠️ {len(xau):,} ID CMS không phải số (vd: {', '.join(xau[:3])}) — PRODUCTID chỉ gồm chữ số.")
+    return rows, ghi_chu, ""
 
 
 def doc_ds_sku(rows: List[list]) -> Tuple[pd.DataFrame, Optional[str]]:
