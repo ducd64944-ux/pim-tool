@@ -46,6 +46,7 @@
 - **📮 Đề xuất sửa CMS**: dữ liệu CMS sai → đề xuất sửa → admin duyệt → dùng chung cho mọi người.
 - **⚙️ Cấu hình**: xem/sửa mapping, cấu hình ngành (admin).
 - **💾 Lưu**: thay đổi tự lưu lên kho. Nút 💾 trên thanh bên để lưu thủ công.
+- **Cột xuất** (khối ③ Xuất file import / trang Xuất): chọn **Cả TSKT và FILTER** (mặc định, như trước) · **Chỉ TSKT** · **Chỉ FILTER**. Chỉ bớt nhóm cột kia, giá trị từng ô không đổi; tên file thêm `_CHI_TSKT` / `_CHI_FILTER`. Ngành không có cột thuộc nhóm đã chọn được bỏ qua và báo rõ. Đổi lựa chọn sau khi đã tạo file thì bấm **Tạo file import** lại.
 - **🧹 Làm mới lô (xoá nhanh)** (ngay dưới thanh IMPORT / DATA SP / Spec cũ / Kết quả map): bấm → xem số liệu sẽ xoá → **Xoá ngay**. Xoá IMPORT, DATA SP, kết quả map và sửa tay của lô đang làm để nạp lô mới. **Giữ nguyên** Cấu hình, Mapping TSKT/FILTER, DATA PIM (dùng chung), đơn vị/biến đổi hàng loạt, quy tắc. Spec cũ chỉ xoá khi tick riêng. Không hoàn tác được.
 - **🧹 Dọn RAM** (cuối trang): bấm khi trang chậm / RAM đầy. Giải phóng bộ nhớ, không mất dữ liệu đang làm. Khi RAM > 75% tool cũng tự dọn và hiện cảnh báo.
 - **Lỗi?** Thử tải lại trang. Nếu vẫn lỗi → liên hệ admin.

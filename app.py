@@ -128,7 +128,7 @@ elif _LOGO.exists():
 import importlib as _il  # noqa: E402
 import sys as _sys  # noqa: E402
 
-_CORE_CAN = "2026-10-09.4"  # phải khớp pim_core.CORE_VERSION; đổi cả 2 nơi mỗi khi pim_core thêm hàm/hằng mới
+_CORE_CAN = "2026-10-10.1"  # phải khớp pim_core.CORE_VERSION; đổi cả 2 nơi mỗi khi pim_core thêm hàm/hằng mới
 
 
 def _bao_dam_module_moi() -> None:
@@ -173,7 +173,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.20 · 2026-10-09"
+APP_VERSION = "web-4.21 · 2026-10-10"
 ss = st.session_state
 
 
@@ -1833,6 +1833,10 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
     if chon is None:
         chon = [c for c in ss.bang if ss.get("chon_nganh", {}).get(c, True)]
         st.caption("Ngành xuất: " + (", ".join(ss.bang[c]["title"] for c in chon) or "(chưa chọn — xem trang 📤)"))
+    loai_cot = st.radio("Cột xuất", list(C.LOAI_COT_XUAT), format_func=C.LOAI_COT_XUAT.get, horizontal=True,
+                        key=f"{key}_loai",
+                        help="Mặc định xuất cả hai (như trước). Chọn Chỉ TSKT hoặc Chỉ FILTER để tạo file riêng — giá trị từng ô "
+                             "không đổi, chỉ bớt nhóm cột kia. Tên file có thêm _CHI_TSKT / _CHI_FILTER.")
     c = st.columns([1.2, 1.4, 2])
     giu_sku = c[0].checkbox("Giữ cột sku", value=False, key=f"{key}_sku",
                             help="Mặc định bỏ cột sku như bản desktop (file import theo model_code/variant_code).")
@@ -1859,7 +1863,8 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
             _uoc_x = int(150 + sum(len(b_.get("rows", [])) * len(b_.get("attr", [])) for b_ in ss.bang.values()) * 0.0004)
             with viec_nang("Tạo file import", _uoc_x) as _ok_x:
                 x = (C.xuat_file_import(ss.bang, ss["import"], ss.sua, ss.dv, ss.rong, bo_cot_sku=not giu_sku,
-                                        chi_cate=chon, bo_dong_trong=bo_trong, bo_o=o_ten_bi_chan())
+                                        chi_cate=chon, bo_dong_trong=bo_trong, bo_o=o_ten_bi_chan(),
+                                        loai_cot=loai_cot)
                      if _ok_x else None)
         if x is not None:
             ss.xuat = x
@@ -1880,6 +1885,9 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
     if x and ss.get("xuat_ver") != ss.get("ver", 0):
         st.warning("Dữ liệu đã thay đổi sau lần tạo file trước — bấm **📤 Tạo file import** lại để có file mới nhất.")
         x = None
+    elif x and x.get("loai_cot", "ca_hai") != loai_cot:
+        st.warning(f"Bạn vừa đổi sang «{C.LOAI_COT_XUAT[loai_cot]}» — bấm **📤 Tạo file import** lại để có file đúng loại.")
+        x = None
     if x:
         st.markdown("#### Tải file (mở được ngay, không cần giải nén)")
         for t, d, n in x["files"]:
@@ -1887,6 +1895,9 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         st.download_button("🗜️ Tải tất cả (.zip)", x["zip"], file_name=f"PIM_IMPORT_{x['stamp']}.zip",
                            mime="application/zip", key=f"{key}_zip")
+        if x.get("khong_cot"):
+            st.info(f"Bỏ qua (không có cột {C.LOAI_COT_XUAT[x['loai_cot']].replace('Chỉ ', '')} trong cấu hình): "
+                    + ", ".join(x["khong_cot"]))
         st.caption(f"Đã áp {x.get('so_o_sua', 0)} ô sửa tay · {x.get('so_o_dv', 0)} ô thêm đơn vị · "
                    f"{x.get('so_o_bd', 0)} ô biến đổi hàng loạt · {x.get('so_o_rong', 0)} ô Không/Đang cập nhật"
                    + (f" · tách {x['bo_trong']} SKU không có giá trị sang file xin data" if x.get("bo_trong") else "")

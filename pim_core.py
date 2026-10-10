@@ -552,7 +552,7 @@ TEN_COT: Dict[str, List[str]] = {
 }
 
 
-CORE_VERSION = "2026-10-09.4"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
+CORE_VERSION = "2026-10-10.1"  # khớp _CORE_CAN trong app.py (app tự nạp lại module nếu lệch)
 ID_TIEN_TO = "ID_"  # SP CMS CHƯA có PRODUCTCODE (SKU) -> mã tạm "ID_<PRODUCTID>" để đi qua pipeline như 1 SKU thường
 
 
@@ -2100,22 +2100,51 @@ def _xlsx_text(rows: List[list]) -> bytes:
     return buf.getvalue()
 
 
+LOAI_COT_XUAT = {"ca_hai": "Cả TSKT và FILTER", "tskt": "Chỉ TSKT", "filter": "Chỉ FILTER"}
+_COT_ID = ("model_code", "sku", "variant_code")
+
+
 def xuat_file_import(bang: Dict[str, dict], imp: pd.DataFrame, sua: dict, don_vi: dict, rong: dict,
                      bo_cot_sku: bool = True, chi_cate: Optional[List[str]] = None,
-                     bo_dong_trong: bool = False, bo_o: Optional[set] = None) -> dict:
+                     bo_dong_trong: bool = False, bo_o: Optional[set] = None, loai_cot: str = "ca_hai") -> dict:
     """-> {"files": [(tên, bytes, số dòng)], "zip": bytes, "so_o_sua", "so_o_dv", "so_o_rong", "bo_dong", "bo_trong"}.
     bo_dong_trong=True: SKU không có giá trị thuộc tính nào -> KHÔNG đưa vào file import (đưa vào file xin data).
-    Mặc định False = như desktop (vẫn xuất dòng trống)."""
+    Mặc định False = như desktop (vẫn xuất dòng trống).
+    loai_cot: "ca_hai" (mặc định = y hệt trước đây) | "tskt" (bỏ cột FILTER) | "filter" (bỏ cột TSKT). CHỈ lọc cột khi ghi file:
+    giá trị từng ô vẫn do bien_doi_o + gon_filter_khi_xuat quyết định như cũ. Khi lọc, tên file thêm _CHI_TSKT / _CHI_FILTER."""
+    if loai_cot not in LOAI_COT_XUAT:
+        raise ValueError(f"loai_cot không hợp lệ: {loai_cot!r}")
     stamp = datetime.now(VN_TZ).strftime("%Y%m%d_%H%M")
     sku_imp = set(imp.sku) if imp is not None and len(imp) else set()
     files: List[Tuple[str, bytes, int]] = []
     dem = Counter()
+    khong_cot: List[str] = []  # ngành không có cột nào thuộc nhóm đang chọn -> bỏ qua (không ghi file rỗng)
+    hau_loai = {"ca_hai": "", "tskt": "_CHI_TSKT", "filter": "_CHI_FILTER"}[loai_cot]
     for cate, b in bang.items():
         if chi_cate and cate not in chi_cate:
             continue
         cot = ["model_code"] + ([] if bo_cot_sku else ["sku"]) + ["variant_code"] + b["attr"]
+        cot_bo: List[str] = []  # cột của nhóm KHÔNG xuất lần này (rỗng khi "ca_hai" -> đường chạy cũ giữ nguyên)
+        if loai_cot != "ca_hai":
+            muon_filter = loai_cot == "filter"
+            cot_bo = [c for c in b["attr"] if la_cot_filter(c) != muon_filter]
+            cot = [c for c in cot if c not in cot_bo]
+            if not any(c not in _COT_ID for c in cot):
+                khong_cot.append(b["title"])
+                continue
         ten = {"model_code": "Mã model", "sku": "Mã sản phẩm ERP", "variant_code": "Mã biến thể"}
         h2 = [ten.get(c) or b["ten"].get(c, "") for c in cot]
+
+        def _co_o_nhom_kia(r: dict) -> bool:
+            """SKU có giá trị ở nhóm cột KHÔNG xuất lần này? (để không nhầm là SKU 'không có data' khi chỉ xuất 1 nhóm)"""
+            for c in cot_bo:
+                v0 = "" if (bo_o and f"{r['sku']}\t{c}" in bo_o) else r["vals"].get(c, "")
+                v = bien_doi_o(cate, r["sku"], c, v0, sua, don_vi, rong)[0]
+                if v and la_cot_filter(c):
+                    v = gon_filter_khi_xuat(v)
+                if v:
+                    return True
+            return False
         model_rows, var_rows = [], []
         for r in b["rows"]:
             if sku_imp and r["sku"] not in sku_imp:
@@ -2136,23 +2165,25 @@ def xuat_file_import(bang: Dict[str, dict], imp: pd.DataFrame, sua: dict, don_vi
                 if v and la_cot_filter(c):
                     v = gon_filter_khi_xuat(v)  # 25, 30 -> 25,30 · không khoảng trắng nào (PIM không cắt khoảng trắng)
                 out.append(v)
-            if bo_dong_trong and not any(v for c, v in zip(cot, out) if c not in ("model_code", "sku", "variant_code")):
+            if (bo_dong_trong and not any(v for c, v in zip(cot, out) if c not in _COT_ID)
+                    and not (cot_bo and _co_o_nhom_kia(r))):
                 dem["bo_trong"] += 1
                 continue
             (var_rows if chuan_hoa_key(r["vals"].get("variant_code")) else model_rows).append(out)
         nhan = ten_tab_desktop(b["title"])
         for hau, data in (("_MODEL", model_rows), ("_BIENTHE", var_rows)):
             if data:
-                files.append((f"PIM_{nhan}{hau}_{stamp}.xlsx", _xlsx_text([cot, h2] + data), len(data)))
+                files.append((f"PIM_{nhan}{hau_loai}{hau}_{stamp}.xlsx", _xlsx_text([cot, h2] + data), len(data)))
     zbuf = io.BytesIO()
     with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as zf:
         for t, d, _ in files:
             zf.writestr(t, d)
-        if sua:
+        sua_xuat = sua if loai_cot == "ca_hai" else {k: v for k, v in sua.items() if la_cot_filter(k[2]) == (loai_cot == "filter")}
+        if sua_xuat:
             zf.writestr("_CHINH_SUA_TAY.txt", "\r\n".join(
                 ["NGÀNH HÀNG\tSKU\tMÃ TSKT\tGIÁ TRỊ SỬA TAY"] +
-                [f"{c}\t{k}\t{m}\t{v}" for (c, k, m), v in sorted(sua.items())]).encode("utf-8-sig"))
-    return {"files": files, "zip": zbuf.getvalue(), "stamp": stamp, **dem}
+                [f"{c}\t{k}\t{m}\t{v}" for (c, k, m), v in sorted(sua_xuat.items())]).encode("utf-8-sig"))
+    return {"files": files, "zip": zbuf.getvalue(), "stamp": stamp, "loai_cot": loai_cot, "khong_cot": khong_cot, **dem}
 
 
 def xlsx_nhieu_sheet(sheets: Dict[str, pd.DataFrame]) -> bytes:

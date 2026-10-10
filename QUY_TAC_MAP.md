@@ -27,6 +27,7 @@ File `tests/test_parity_desktop.py` tự kiểm tra các quy tắc dưới đây
 - **Nhiều mã trong ô FILTER khi ghi file import:** web viết SÁT dấu phẩy (`25,30`), desktop viết `25, 30`; ô FILTER chỉ gồm số và dấu phẩy, KHÔNG có khoảng trắng nào (kể cả NBSP, khoảng trắng ẩn, khoảng trắng đầu/cuối). PIM không cắt khoảng trắng sau dấu phẩy nên ` 30` không khớp option 30 (chỉ hiện số, không tick). Chỉ đổi ở bước ghi file; bên trong tool (map, so sánh PIM, quy tắc) vẫn như desktop.
 - **Option có tên nhưng mã trống trong DATA PIM:** desktop ghi `215361, ` (thừa dấu phẩy), web bỏ mã trống và ghi log.
 - **Tính năng chỉ có trên web** (chỉ có tác dụng khi được dùng):
+  - xuất riêng chỉ TSKT / chỉ FILTER (mặc định cả hai = như desktop; chỉ lọc cột khi ghi file)
   - quy đổi FILTER
   - đề xuất sửa CMS
   - quy tắc kiểm tra
