@@ -173,7 +173,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.21 · 2026-10-10"
+APP_VERSION = "web-4.22 · 2026-10-10"
 ss = st.session_state
 
 
@@ -4712,19 +4712,6 @@ def khu_xuat(k: dict) -> None:
                    "ĐỐI SOÁT CMS": L.drop(columns=[c for c in L.columns if c.startswith("_")]) if len(L) else L}
         nut_tai("📊 Tải báo cáo kiểm tra (.xlsx)", lambda: C.xlsx_nhieu_sheet(_sheets),
                 file_name=f"KIEM_TRA_{x['stamp']}.xlsx")
-    st.divider()
-    st.markdown("##### 📦 Tải workspace theo MẪU (mở bằng Excel / bản desktop 66.py)")
-    st.caption("1 file đúng bố cục mẫu: IMPORT, DATA SP, DATA PIM, CẤU HÌNH CATEGORY, MAPPING TSKT MOI, MAPPING FILTER "
-               "MOI, CHỌN NGÀNH HÀNG, tab TSKT từng ngành (giá trị SẼ XUẤT, đã áp sửa tay/đơn vị), LOG.")
-    if st.button("🧾 Tạo file workspace theo mẫu"):
-        with st.spinner("Đang tạo…"):
-            ss.ws_mau = C.xuat_workspace_mau(ss["import"], ss.data_sp, ss.data_pim, ss.cau_hinh, ss.map_tskt,
-                                             ss.map_filter, {c: b for c, b in ss.bang.items() if c in chon},
-                                             [x for x in ss.meta.get("chon", []) if x["MÃ NH"] in chon],
-                                             ss.meta.get("log", []), ss.sua, ss.dv, ss.rong)
-    if ss.get("ws_mau"):
-        st.download_button("⬇️ du_lieu_pim.xlsx", ss.ws_mau, file_name=f"du_lieu_pim_{ss.ws}_{C.bay_gio()[:10]}.xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 def trang_xuat() -> None:
