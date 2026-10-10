@@ -173,7 +173,7 @@ def the_lien_he() -> None:
                     st.code(lh[k], language=None)  # có nút sao chép ở góc phải
 
 
-APP_VERSION = "web-4.22 · 2026-10-10"
+APP_VERSION = "web-4.23 · 2026-10-10"
 ss = st.session_state
 
 
@@ -1837,6 +1837,10 @@ def xuat_gon(key: str, chon: list | None = None, canh: list | None = None, can_x
                         key=f"{key}_loai",
                         help="Mặc định xuất cả hai (như trước). Chọn Chỉ TSKT hoặc Chỉ FILTER để tạo file riêng — giá trị từng ô "
                              "không đổi, chỉ bớt nhóm cột kia. Tên file có thêm _CHI_TSKT / _CHI_FILTER.")
+    st.caption({"ca_hai": "Đang xuất: **cả TSKT và FILTER trong 1 file** (tên file không có đuôi _CHI_). Muốn file riêng thì chọn Chỉ TSKT / Chỉ FILTER.",
+                "tskt": "Đang xuất: **chỉ cột TSKT** — tên file có đuôi _CHI_TSKT.",
+                "filter": "Đang xuất: **chỉ cột FILTER** — tên file có đuôi _CHI_FILTER."}[loai_cot]
+               + " Mỗi lần nạp/map lô mới, lựa chọn quay về mặc định — chọn lại nếu cần.")
     c = st.columns([1.2, 1.4, 2])
     giu_sku = c[0].checkbox("Giữ cột sku", value=False, key=f"{key}_sku",
                             help="Mặc định bỏ cột sku như bản desktop (file import theo model_code/variant_code).")
